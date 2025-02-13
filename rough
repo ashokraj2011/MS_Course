@@ -1,0 +1,546 @@
+{
+  "version": "3.1",
+  "metadata": {
+    "rule_name": "Combined Eligibility Rule"
+  },
+  "actions": [
+    {
+      "type": "post_to_queue",
+      "queue_name": "eligible_customers"
+    },
+    {
+      "type": "log",
+      "message": "Rule triggered for eligibility"
+    }
+  ],
+  "extensions": {
+    "custom_functions": [
+      {
+        "name": "myCustomFunction",
+        "description": "A custom function"
+      }
+    ]
+  },
+  "parameters": {
+    "customerId": {
+      "value": "$customerId",
+      "mandatory": true
+    },
+    "accountNumber": {
+      "value": "$accountNumber",
+      "mandatory": false
+    },
+    "branchId": {
+      "value": "$branchId",
+      "mandatory": false
+    },
+    "customerStatus": {
+      "value": "$customerStatus",
+      "mandatory": true
+    },
+    "ruleKey": [
+      {
+        "keyName": "PersonaID",
+        "keyType": "MID",
+        "mandatory": true
+      }
+    ]
+  },
+  "rule_definition": {
+    "op": "and",
+    "terms": [
+      {
+        "entity": "customer",
+        "entity_type": "data",
+        "filters": [
+          {
+            "field": "customer_id",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "$customerId"
+          },
+          {
+            "field": "status",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "$customerStatus"
+          }
+        ],
+        "op": "and",
+        "terms": [
+          {
+            "field": "age",
+            "type": "integer",
+            "function": "comp",
+            "operator": "gt",
+            "value": {
+              "expr": {
+                "language": "juel",
+                "expression": "${18 + 80}"
+              }
+            },
+            "key": "customer_age"
+          }
+        ]
+      },
+      {
+        "entity": "account",
+        "entity_type": "data",
+        "filters": [
+          {
+            "field": "customer_id",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "$customerId"
+          }
+        ],
+        "op": "and",
+        "terms": [
+          {
+            "field": "account_type",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "SB",
+            "key": "account_type"
+          },
+          {
+            "field": "balance",
+            "type": "number",
+            "function": "comp",
+            "operator": "gt",
+            "value": 1000,
+            "key": "account_balance"
+          },
+          {
+            "field": "balance",
+            "type": "number",
+            "function": "sum",
+            "filters": [
+              {
+                "field": "flag",
+                "type": "string",
+                "function": "comp",
+                "operator": "equals",
+                "value": {
+                  "expr": {
+                    "language": "juel",
+                    "expression": "${'open'}"
+                  }
+                }
+              }
+            ],
+            "operator": "equals",
+            "value": 20000
+          }
+        ]
+      },
+      {
+        "entity": "audienceSegments",
+        "entity_type": "data",
+        "filters": [
+          {
+            "field": "customer_id",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "$customerId"
+          }
+        ],
+        "op": "or",
+        "terms": [
+          {
+            "op": "and",
+            "terms": [
+              {
+                "field": "flow_id",
+                "type": "integer",
+                "function": "comp",
+                "operator": "equals",
+                "value": 30
+              },
+              {
+                "field": "var_id",
+                "type": "integer",
+                "function": "comp",
+                "operator": "equals",
+                "value": 40
+              }
+            ]
+          },
+          {
+            "op": "and",
+            "terms": [
+              {
+                "field": "flow_id",
+                "type": "integer",
+                "function": "comp",
+                "operator": "equals",
+                "value": 30
+              },
+              {
+                "field": "var_id",
+                "type": "integer",
+                "function": "comp",
+                "operator": "equals",
+                "value": 45
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "entity": "branch",
+        "entity_type": "data",
+        "filters": [
+          {
+            "field": "branch_id",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "$branchId",
+            "optional": true
+          }
+        ],
+        "op": "and",
+        "terms": [
+          {
+            "field": "location",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "Bengaluru"
+          },
+          {
+            "entity": "suppliers",
+            "op": "and",
+            "terms": [
+              {
+                "field": "supplier_type",
+                "type": "string",
+                "function": "comp",
+                "operator": "equals",
+                "value": "Gold"
+              },
+              {
+                "field": "supplier_status",
+                "type": "string",
+                "function": "comp",
+                "operator": "equals",
+                "value": "approved"
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "entity": "calendar",
+        "entity_type": "data",
+        "filters": [],   
+        "op": "and",
+        "terms": [
+          {
+            "field": "day_of_week",
+            "type": "string",
+            "function": "comp",
+            "operator": "equals",
+            "value": "Friday"
+          }
+        ]
+      },
+      {
+        "entity": "cust_rule1",
+        "entity_type": "rule",
+        "op": "and",
+        "terms": [
+          {
+            "function": "comp",
+            "operator": "equals",
+            "value": true
+          }
+        ]
+      },
+      {
+        "op": "and",
+        "terms": [
+          {
+            "entity": "account_rule1",
+            "entity_type": "rule",
+            "function": "comp",
+            "operator": "equals",
+            "value": {
+              "entity": "account_rule2",
+              "entity_type": "rule"
+            }
+          }
+        ]
+      }
+    ]
+  },
+  "result_mapping": {
+    "cust_rule1": {
+      "rule_result": "rule_result",
+      "customer_age": "customer.age",
+      "account_balance": {
+        "expr": {
+          "language": "juel",
+          "expression": "${account.balance}"
+        }
+      }
+    }
+  },
+  "result": {
+    "rule_result": {},
+    "customer": {
+      "age": {}
+    },
+    "account": {
+      "balance": {}
+    }
+  },
+  "errors": [
+    {
+      "code": "MISSING_INPUT",
+      "message": "Missing required input value"
+    }
+  ]
+}
+
+
+- version: 3.1
+- metadata
+  - rule_name: Combined Eligibility Rule
+- actions
+  -
+    - type: post_to_queue
+    - queue_name: eligible_customers
+  -
+    - type: log
+    - message: Rule triggered for eligibility
+- extensions
+  - custom_functions
+    -
+      - name: myCustomFunction
+      - description: A custom function
+- parameters
+  - customerId
+    - value: $customerId
+    - mandatory: true
+  - accountNumber
+    - value: $accountNumber
+    - mandatory: false
+  - branchId
+    - value: $branchId
+    - mandatory: false
+  - customerStatus
+    - value: $customerStatus
+    - mandatory: true
+  - ruleKey:
+- rule_definition
+  - op: and
+  - terms  
+    -
+      - entity: customer
+      - entity_type: data
+      - filters
+        -
+          - field: customer_id
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: $customerId
+        -
+          - field: status
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: $customerStatus
+      - op: and
+      - terms
+        -
+          - field: age
+          - type: integer
+          - function: comp
+          - operator: gt
+          - value
+            - expr
+              - language: juel
+              - expression: ${18 + 80}
+          - key: customer_age
+    -
+      - entity: account
+      - entity_type: data
+      - filters
+        -
+          - field: customer_id
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: $customerId
+      - op: and
+      - terms
+        -
+          - field: account_type
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: SB
+          - key: account_type
+        -
+          - field: balance
+          - type: number
+          - function: comp
+          - operator: gt
+          - value: 1000
+          - key: account_balance
+        -
+          - field: balance
+          - type: number
+          - function: sum
+          - filters
+            -
+              - field: flag
+              - type: string
+              - function: comp
+              - operator: equals
+              - value
+                - expr
+                  - language: juel
+                  - expression: ${'open'}
+          - operator: equals
+          - value: 20000
+    -
+      - entity: audienceSegments
+      - entity_type: data
+      - filters
+        -
+          - field: customer_id
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: $customerId
+      - op: or
+      - terms
+        -
+          - op: and
+          - terms
+            -
+              - field: flow_id
+              - type: integer
+              - function: comp
+              - operator: equals
+              - value: 30
+            -
+              - field: var_id
+              - type: integer
+              - function: comp
+              - operator: equals
+              - value: 40
+        -
+          - op: and
+          - terms
+            -
+              - field: flow_id
+              - type: integer
+              - function: comp
+              - operator: equals
+              - value: 30
+            -
+              - field: var_id
+              - type: integer
+              - function: comp
+              - operator: equals
+              - value: 45
+    -
+      - entity: branch
+      - entity_type: data
+      - filters
+        -
+          - field: branch_id
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: $branchId
+          - optional: true
+      - op: and
+      - terms
+        -
+          - field: location
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: Bengaluru
+        -
+          - entity: suppliers
+          - op: and
+          - terms
+            -
+              - field: supplier_type
+              - type: string
+              - function: comp
+              - operator: equals
+              - value: Gold
+            -
+              - field: supplier_status
+              - type: string
+              - function: comp
+              - operator: equals
+              - value: approved
+    -
+      - entity: calendar
+      - entity_type: data
+      - filters:
+      - op: and
+      - terms
+        -
+          - field: day_of_week
+          - type: string
+          - function: comp
+          - operator: equals
+          - value: Friday
+    -
+      - entity: cust_rule1
+      - entity_type: rule
+      - op: and
+      - terms
+        -
+          - function: comp
+          - operator: equals
+          - value: true
+    -
+      - op: and
+      - terms
+        -
+          - entity: account_rule1
+          - entity_type: rule
+          - function: comp
+          - operator: equals
+          - value
+            - entity: account_rule2
+            - entity_type: rule
+- result_mapping
+  - cust_rule1
+    - rule_result: rule_result
+    - customer_age: customer.age
+    - account_balance
+      - expr
+        - language: juel
+        - expression: ${account.balance}
+- result
+  - rule_result: {}
+  - customer
+    - age: {}
+  - account
+    - balance: {}
+- errors
+  -
+    - code: INVALID_EXPRESSION
+    - message: Invalid expression encountered
+  -
+    - code: MISSING_INPUT
+    - message: Missing required input value
+
+
