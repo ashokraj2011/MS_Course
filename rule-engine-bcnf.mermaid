@@ -1,0 +1,120 @@
+erDiagram
+    RULE {
+        string rule_id PK
+        string name
+        string version
+        string domain
+        boolean cachable
+        int ttl
+        string status
+        datetime created_date
+        datetime last_updated
+        string created_by
+        string approved_by
+    }
+
+    RULE_METADATA {
+        string rule_id PK, FK
+        string copied_from_rule
+        string copied_from_version
+        datetime expiry_date
+        string description
+    }
+
+    RULE_PARAMETER {
+        string parameter_id PK
+        string rule_id FK
+        string name
+        string type
+        boolean mandatory
+        string description
+        string default_value
+    }
+
+    PARAMETER_VALIDATION {
+        string validation_id PK
+        string parameter_id FK
+        string validation_type
+        string validation_value
+    }
+
+    RULE_TERM {
+        string term_id PK
+        string rule_id FK
+        string parent_term_id FK
+        string operator
+        string entity_name
+        string entity_type
+    }
+
+    TERM_FILTER {
+        string filter_id PK
+        string term_id FK
+        string field
+        string type
+        string comparison
+        string value
+    }
+
+    DATA_SOURCE {
+        string source_id PK
+        string rule_id FK
+        string alias
+        string type
+        string connection_string
+        string entity_name
+    }
+
+    DATA_SOURCE_ATTRIBUTE {
+        string attribute_id PK
+        string source_id FK
+        string name
+        string type
+    }
+
+    ACTION {
+        string action_id PK
+        string rule_id FK
+        string type
+        int sequence
+        string action_name
+    }
+
+    ACTION_PARAMETER {
+        string parameter_id PK
+        string action_id FK
+        string name
+        string value
+    }
+
+    ERROR_HANDLING {
+        string error_id PK
+        string entity_id FK
+        string entity_type
+        string strategy
+        int max_attempts
+        int delay
+    }
+
+    RESULT_MAPPING {
+        string mapping_id PK
+        string rule_id FK
+        string status
+        string outcome_type
+        string value_name
+        string value_type
+    }
+
+    RULE ||--o{ RULE_METADATA : "has"
+    RULE ||--o{ RULE_PARAMETER : "defines"
+    RULE_PARAMETER ||--o{ PARAMETER_VALIDATION : "has"
+    RULE ||--o{ RULE_TERM : "contains"
+    RULE_TERM ||--o{ RULE_TERM : "nested_terms"
+    RULE_TERM ||--o{ TERM_FILTER : "has"
+    RULE ||--o{ DATA_SOURCE : "uses"
+    DATA_SOURCE ||--o{ DATA_SOURCE_ATTRIBUTE : "has"
+    RULE ||--o{ ACTION : "performs"
+    ACTION ||--o{ ACTION_PARAMETER : "requires"
+    RULE ||--o{ RESULT_MAPPING : "produces"
+    ACTION ||--o{ ERROR_HANDLING : "handles_errors"
+    DATA_SOURCE ||--o{ ERROR_HANDLING : "handles_errors"

@@ -1,0 +1,95 @@
+{
+  "op": "ifelse",
+  "terms": [
+    {
+      "op": "if",
+      "terms": [
+        {
+          "field": "customer.status",
+          "type": "string",
+          "comparison": "neq",
+          "value": "active"
+        },
+        {
+          "entityName": "account",
+          "entityType": "data",
+          "filters": [
+            {
+              "field": "customer_id",
+              "type": "string",
+              "comparison": "equals",
+              "value": { "parameter": "$customerId" }
+            }
+          ],
+          "op": "and",
+          "terms": [
+            {
+              "field": "balance",
+              "type": "number",
+              "comparison": "gt",
+              "value": 5000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "elif",
+      "terms": [
+        {
+          "field": "customer.status",
+          "type": "string",
+          "comparison": "equals",
+          "value": "active"
+        },
+        {
+          "entityName": "account",
+          "entityType": "data",
+          "filters": [
+            {
+              "field": "customer_id",
+              "type": "string",
+              "comparison": "equals",
+              "value": { "parameter": "$customerId" }
+            }
+          ],
+          "op": "and",
+          "terms": [
+            {
+              "field": "householdIncome",
+              "type": "number",
+              "comparison": "gt",
+              "value": 1000
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "else",
+      "terms": [
+        {
+          "entityName": "account",
+          "entityType": "data",
+          "filters": [
+            {
+              "field": "customer_id",
+              "type": "string",
+              "comparison": "equals",
+              "value": { "parameter": "$customerId" }
+            }
+          ],
+          "op": "and",
+          "terms": [
+            {
+              "field": "balance",
+              "type": "number",
+              "comparison": "gt",
+              "value": 500
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

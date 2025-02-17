@@ -1,0 +1,125 @@
+{
+  "type": "object",
+  "properties": {
+    "version": { "type": "string" },
+    "metadata": {
+      "type": "object",
+      "properties": {
+        "rule_name": { "type": "string" }
+      },
+      "required": ["rule_name"]
+    },
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "type": { "type": "string" },
+          "queue_name": { "type": "string" },
+          "message": { "type": "string" }
+        },
+        "required": ["type"]
+      }
+    },
+    "extensions": {
+      "type": "object",
+      "properties": {
+        "custom_functions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "name": { "type": "string" },
+              "description": { "type": "string" }
+            },
+            "required": ["name", "description"]
+          }
+        }
+      }
+    },
+    "parameters": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "value": { "type": "string" },
+          "mandatory": { "type": "boolean" }
+        },
+        "required": ["value"]
+      }
+    },
+    "conditions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "entity": { "type": "string" },
+          "filters": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/filter" }
+          },
+          "op": { "type": "string", "enum": ["and", "or"] },
+          "terms": {
+            "type": "array",
+            "items": { "$ref": "#/definitions/term" }
+          }
+        },
+        "required": ["entity", "op", "terms"]
+      }
+    }
+  },
+  "required": ["version", "metadata", "actions", "extensions", "parameters", "conditions"],
+  "definitions": {
+    "filter": {
+      "type": "object",
+      "properties": {
+        "field": { "type": "string" },
+        "type": { "type": "string" },
+        "function": { "type": "string", "enum": ["comp"] },
+        "operator": { "type": "string" },
+        "value": {
+          "oneOf": [
+            { "type": ["string", "number", "integer"] },
+            { "$ref": "#/definitions/expression" }
+          ]
+        },
+        "optional": { "type": "boolean" }
+      },
+      "required": ["field", "function", "operator", "value"]
+    },
+    "term": {
+      "type": "object",
+      "properties": {
+        "field": { "type": "string" },
+        "type": { "type": "string" },
+        "function": { "type": "string", "enum": ["comp", "sum"] },
+        "operator": { "type": "string" },
+        "value": {
+          "oneOf": [
+            { "type": ["string", "number", "integer"] },
+            { "$ref": "#/definitions/expression" }
+          ]
+        },
+        "filters": {
+          "type": "array",
+          "items": { "$ref": "#/definitions/filter" }
+        }
+      },
+      "required": ["field", "function", "operator", "value"]
+    },
+    "expression": {
+      "type": "object",
+      "properties": {
+        "expr": {
+          "type": "object",
+          "properties": {
+            "language": { "type": "string" },
+            "expression": { "type": "string" }
+          },
+          "required": ["language", "expression"]
+        }
+      },
+      "required": ["expr"]
+    }
+  }
+}

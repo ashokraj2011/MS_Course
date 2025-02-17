@@ -1,0 +1,254 @@
+Rule = "{" ,
+          "ruleGrammarVersion": string ,
+          "metadata": Metadata ,
+          "cache": Cache ,
+          "actions": [ Action ] ,
+          "parameters": { Parameter } ,
+          "preCondition": PreCondition ,
+          "ruleDefinition": RuleDefinition ,
+          "dataExtraction": [ DataExtraction ] ,
+          "dataAccess": DataAccess ,
+          "result": Result ,
+        "}" ;
+
+Metadata = "{" ,
+              "uid": string ,
+              "ruleName": string ,
+              "domain": string ,
+              "description": string ,
+              "copiedFromRule": string ,
+              "copiedFromVersion": string ,
+              "createdBy": string ,
+              "approvedBy": string ,
+              "status": string ,
+              "ruleExpiry": RuleExpiry ,
+              "createdDate": string ,
+              "lastUpdated": string ,
+              "ruleVersion": string ,
+              "categories": [ string ] ,
+              "dependencies": [ string ] ,
+            "}" ;
+
+RuleExpiry = "{" ,
+                "expiryFlag": ("Y" | "N") ,
+                "dateOfExpiry": string ,
+              "}" ;
+
+Cache = "{" ,
+          "cachable": boolean ,
+          "ttl": integer ,
+          "cacheKey": string ,
+        "}" ;
+
+Action = "{" ,
+           "type": ("always" | "onSuccess" | "onFailure" | "onError" | "afterRun") ,
+           "actions": [ SubAction ] ,
+         "}" ;
+
+SubAction = "{" ,
+              "sequence": integer ,
+              "type": ("postToQueue" | "log" | "conditional" | "sendEmail" | "sendSMS" | "notifyAdmin" | "custom") ,
+              "queueName"?: string ,
+              "onError"?: ErrorHandling ,
+              "message"?: string ,
+              "condition"?: string ,
+              "actions"?: [ SubAction ] ,
+              "elseActions"?: [ SubAction ] ,
+              "to"?: { "parameter": string } ,
+              "subject"?: string ,
+              "expiry"?: Expiry ,
+              "actionName"?: string ,
+              "parameters"?: { Parameter } ,
+            "}" ;
+
+ErrorHandling = "{" ,
+                  "strategy": ("retry" | "evaluateFalse") ,
+                  "attempts"?: integer ,
+                  "delay"?: integer ,
+                  "errorCode"?: string ,
+                "}" ;
+
+Expiry = "{" ,
+          "type": "time" ,
+          "dateTime": string ,
+        "}" ;
+
+Parameter = "{" ,
+              "value": string ,
+              "mandatory": boolean ,
+              "description"?: string ,
+              "type": ("string" | "integer" | "number" | "boolean" | "date" | "array" | "MID") ,
+              "optionalFilterBehavior"?: ("skipBlock" | "ignoreFilter" | "treatAsNoData") ,
+              "enum"?: [ string ] ,
+              "allowedValues"?: [ string ] ,
+            "}" ;
+
+PreCondition = "{" ,
+                "op": ("and" | "or" | "not" | "exists") ,
+                "terms"?: [ PreConditionTerm ] ,
+                "entityName": string ,
+                "entityType": ("data" | "rule") ,
+                "filters"?: [ Filter ] ,
+              "}" ;
+
+PreConditionTerm = PreCondition | Filter ;
+
+RuleDefinition = "{" ,
+                  "op": ("and" | "or" | "not" | "ifelse" | "exists") ,
+                  "terms": [ RuleDefinitionTerm ] ,
+                  "schema"?: Schema ,
+                  "entityName"?: string ,
+                  "entityType"?: ("data" | "lambda" | "rule") ,
+                  "filters"?: [ Filter ] ,
+                  "functionName"?: string ,
+                  "async"?: boolean ,
+                  "parameters"?: { Parameter } ,
+                  "comparison"?: ("equals" | "notEquals" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "contains" | "startsWith" | "endsWith" | "isNull" | "isNotNull" | "inDataset" | "any" | "all" | "matches") ,
+                  "value"?: Value ,
+                  "key"?: string ,
+                  "onError"?: ErrorHandling ,
+                  "field"?: string ,
+                  "term"?: RuleDefinition ,
+                  "ifElse"?: IfElseBlock ,
+                "}" ;
+
+RuleDefinitionTerm = RuleDefinition | Filter ;
+
+Schema = "{" ,
+          "type": ("object" | "array" | "string" | "integer" | "number" | "boolean") ,
+          "properties"?: { Schema } ,
+          "items"?: Schema ,
+          "required"?: [ string ] ,
+        "}" ;
+
+IfElseBlock = "{" ,
+                "condition": RuleDefinition ,
+                "then": RuleDefinition ,
+                "else": RuleDefinition ,
+              "}" ;
+
+Filter = "{" ,
+          "field": string ,
+          "type": ("string" | "integer" | "number" | "boolean" | "date" | "array") ,
+          "comparison": ("equals" | "notEquals" | "greaterThan" | "lessThan" | "greaterThanOrEqual" | "lessThanOrEqual" | "contains" | "startsWith" | "endsWith" | "isNull" | "isNotNull" | "in") ,
+          "value": Value ,
+          "optional"?: boolean ,
+        "}" ;
+
+Value = string | integer | number | boolean | 
+        { "parameter": string } | 
+        { "expr": { "language": "juel", "expression": string, "source"?: ("LHS" | "RHS") } } |
+        { "entityName": string, "entityType": "data", "field": string, "type": "array" } ;
+
+DataExtraction = "{" ,
+                  "entityName": string ,
+                  "entityType": "data" ,
+                  "filters": [ Filter ] ,
+                  "extractedAttributes": [ string ] ,
+                  "aggregator"?: Aggregator ,
+                  "transformation"?: Transformation ,
+                "}" ;
+
+Aggregator = "{" ,
+              "type": ("sum" | "count" | "min" | "max") ,
+              "expr"?: { "language": "juel", "expression": string } ,
+              "filters"?: [ Filter ] ,
+            "}" ;
+
+Transformation = "{" ,
+                  "expr": { "language": "juel", "expression": string, "source": ("LHS" | "RHS") } ,
+                "}" ;
+
+DataAccess = "{" ,
+              "dataSources": [ DataSource ] ,
+              "apis": [ Api ] ,
+              "functions": [ Function ] ,
+              "cloudServices": [ CloudService ] ,
+              "graphql": [ Graphql ] ,
+              "connections": [ Connection ] ,
+            "}" ;
+
+DataSource = "{" ,
+              "alias": string ,
+              "type": "database" ,
+              "connection": string ,
+              "entityName": string ,
+              "query": string ,
+              "attributes": [ string ] ,
+            "}" ;
+
+Api = "{" ,
+        "alias": string ,
+        "type": "api" ,
+        "endpoint": string ,
+        "attributes": [ string ] ,
+      "}" ;
+
+Function = "{" ,
+            "entityName": string ,
+            "type": "function" ,
+            "name": string ,
+            "attributes": [ string ] ,
+          "}" ;
+
+CloudService = "{" ,
+                "entityName": string ,
+                "type": ("awsLambda" | "sagemakerEndpoint" | "s3Bucket") ,
+                "functionName"?: string ,
+                "endpointName"?: string ,
+                "inputType"?: string ,
+                "outputType"?: string ,
+                "bucketName"?: string ,
+                "filePath"?: string ,
+                "fileFormat"?: string ,
+                "delimiter"?: string ,
+                "header"?: boolean ,
+                "filter"?: Filter ,
+                "parameters"?: { Parameter } ,
+                "attributes": [ string ] ,
+                "onError": [ SubAction ] ,
+              "}" ;
+
+Graphql = "{" ,
+            "entityName": string ,
+            "type": "graphql" ,
+            "endpoint": string ,
+            "query": string ,
+            "mapping": { string } ,
+            "onError": { "action": "log", "message": string } ,
+          "}" ;
+
+Connection = "{" ,
+              "name": string ,
+              "type": "jdbc" ,
+              "url": string ,
+              "username": string ,
+              "password": string ,
+            "}" ;
+
+Result = "{" ,
+          "ruleResult": RuleResult ,
+          "extractedData": { string } ,
+          "ruleAttributes": { string } ,
+          "outcome": Outcome ,
+        "}" ;
+
+RuleResult = "{" ,
+              "status": { "type": "string", "enum": ["passed", "failed", "error"] } ,
+              "timestamp": { "type": "date" } ,
+              "executionTimeMs": { "type": "integer", "description": "Execution time in milliseconds" } ,
+              "failureReasons": { "type": "array", "items": { "type": "object", "properties": { "code": { "type": "string" }, "message": { "type": "string" } } } } ,
+            "}" ;
+
+Outcome = "{" ,
+            "success": { "returnValues": [ { "name": string, "value": string, "type": string } ] } ,
+            "failure": { "returnValues": [ { "name": string, "value": string, "type": string } ] } ,
+            "error": { "returnValues": [ { "name": string, "value": string, "type": string } ] } ,
+          "}" ;
+
+string = '"' , *( character - '"' ) , '"' ;
+character = any Unicode character except " or \ or control characters ;
+boolean = "true" | "false" ;
+integer =? , digit+ ;
+number =? , digit+ , [ "." , digit+ ] , [ ( "e" | "E" ) ,? , digit+ ] ;
+digit = "0" | "1" | "2" | "3" | "4" | "5" | "6" | "7" | "8" | "9" ;

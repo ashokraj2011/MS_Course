@@ -1,0 +1,119 @@
+classDiagram
+    RuleDefinition *-- Metadata
+    RuleDefinition *-- Security
+    RuleDefinition *-- Actions
+    RuleDefinition *-- Parameters
+    RuleDefinition *-- RuleLogic
+    RuleDefinition *-- DataAccess
+    RuleDefinition *-- Result
+
+    class RuleDefinition {
+        +version: string
+        +metadata: object
+        +security: object
+        +actions: array
+        +parameters: object
+        +ruleDefinition: object
+        +dataAccess: object
+        +result: object
+    }
+
+    class Metadata {
+        +uid: string
+        +ruleName: string
+        +domain: string
+        +cachable: boolean
+        +ttl: number
+        +status: string
+        +ruleExpiry: object
+    }
+
+    class Security {
+        +default: object
+        +overrides: object
+    }
+
+    Actions *-- ActionType
+    class Actions {
+        +type: string
+        +sequence: number
+        +actions: array
+    }
+
+    class ActionType {
+        +always
+        +onSuccess
+        +onFailure
+        +onError
+        +afterRun
+    }
+
+    Parameters *-- ParameterType
+    class Parameters {
+        +value: string
+        +mandatory: boolean
+        +description: string
+        +type: string
+    }
+
+    class ParameterType {
+        +string
+        +number
+        +boolean
+        +date
+        +array
+    }
+
+    RuleLogic *-- Operator
+    RuleLogic *-- Term
+    class RuleLogic {
+        +op: string
+        +terms: array
+    }
+
+    class Operator {
+        +and
+        +or
+        +not
+        +exists
+    }
+
+    class Term {
+        +field: string
+        +type: string
+        +comparison: string
+        +value: any
+    }
+
+    DataAccess *-- DataSource
+    class DataAccess {
+        +dataSources: array
+        +apis: array
+        +functions: array
+        +cloudServices: array
+        +connections: array
+    }
+
+    class DataSource {
+        +database
+        +api
+        +function
+        +lambda
+        +sagemaker
+        +s3
+        +graphql
+    }
+
+    Result *-- Outcome
+    class Result {
+        +status: string
+        +timestamp: date
+        +executionTimeMs: number
+        +failureReasons: array
+    }
+
+    class Outcome {
+        +success: object
+        +failure: object
+        +error: object
+    }

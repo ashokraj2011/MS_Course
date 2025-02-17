@@ -1,0 +1,183 @@
+- version: 3.1
+- metadata
+  - rule_name: Combined Eligibility Rule
+- actions
+  -
+    - type: post_to_queue
+    - queue_name: eligible_customers
+  -
+    - type: log
+    - message: Rule triggered for eligibility
+- extensions
+  - custom_functions
+    -
+      - name: myCustomFunction
+      - description: A custom function
+- parameters
+  - customerId
+    - value: $customerId
+    - mandatory: true
+  - accountNumber
+    - value: $accountNumber
+    - mandatory: false
+  - branchId
+    - value: $branchId
+    - mandatory: false
+  - customerStatus
+    - value: $customerStatus
+    - mandatory: true
+- conditions
+  -
+    - entity: customer
+    - filters
+      -
+        - field: customer_id
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: $customerId
+      -
+        - field: status
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: $customerStatus
+    - op: and
+    - terms
+      -
+        - field: age
+        - type: integer
+        - function: comp
+        - operator: gt
+        - value
+          - expr
+            - language: juel
+            - expression: ${18 + 80}
+  -
+    - entity: account
+    - filters
+      -
+        - field: customer_id
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: $customerId
+    - op: and
+    - terms
+      -
+        - field: account_type
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: SB
+      -
+        - field: balance
+        - type: number
+        - function: comp
+        - operator: gt
+        - value: 1000
+      -
+        - field: balance
+        - type: number
+        - function: sum
+        - filters
+          -
+            - field: flag
+            - type: string
+            - function: comp
+            - operator: equals
+            - value
+              - expr
+                - language: juel
+                - expression: ${'open'}
+        - operator: equals
+        - value: 20000
+  -
+    - entity: audienceSegments
+    - filters
+      -
+        - field: customer_id
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: $customerId
+    - op: or
+    - terms
+      -
+        - op: and
+        - terms
+          -
+            - field: flow_id
+            - type: integer
+            - function: comp
+            - operator: equals
+            - value: 30
+          -
+            - field: var_id
+            - type: integer
+            - function: comp
+            - operator: equals
+            - value: 40
+      -
+        - op: and
+        - terms
+          -
+            - field: flow_id
+            - type: integer
+            - function: comp
+            - operator: equals
+            - value: 30
+          -
+            - field: var_id
+            - type: integer
+            - function: comp
+            - operator: equals
+            - value: 45
+  -
+    - entity: branch
+    - filters
+      -
+        - field: branch_id
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: $branchId
+        - optional: true
+    - op: and
+    - terms
+      -
+        - field: location
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: Bengaluru
+      -
+        - entity: suppliers
+        - op: and
+        - terms
+          -
+            - field: supplier_type
+            - type: string
+            - function: comp
+            - operator: equals
+            - value: Gold
+          -
+            - field: supplier_status
+            - type: string
+            - function: comp
+            - operator: equals
+            - value: approved
+  -
+    - entity: calendar
+    - filters:
+    - op: and
+    - terms
+      -
+        - field: day_of_week
+        - type: string
+        - function: comp
+        - operator: equals
+        - value: Friday
+
+
+        
