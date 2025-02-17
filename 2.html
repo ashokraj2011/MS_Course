@@ -1,0 +1,753 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>JSON Rule Engine DSL Tree</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+    }
+    details {
+      margin-left: 20px;
+      padding: 2px 0;
+    }
+    summary {
+      font-weight: bold;
+      cursor: pointer;
+    }
+    pre {
+      background-color: #f9f9f9;
+      border: 1px solid #ddd;
+      padding: 10px;
+      margin: 5px 0 10px 20px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+
+<details open>
+  <summary>Rule File</summary>
+
+  <details open>
+    <summary>metadata</summary>
+    <pre>{
+  "uid": "0x345345534",
+  "ruleName": "CustomerEligibilityRule_v5",
+  "domain": "Eligibility",
+  "description": "Determines customer eligibility (with SageMaker and S3).",
+  "copiedFromRule": "EligibilityRule2",
+  "copiedFromVersion": "4",
+  "createdBy": "corpid",
+  "approvedBy": "corpid",
+  "status": "active",
+  "ruleExpiry": {
+    "expiryFlag": "Y",
+    "dateOfExpiry": "2025-12-31T23:59:59Z"
+  },
+  "createdDate": "2024-01-15T10:00:00Z",
+  "lastUpdated": "2024-03-03T15:30:00Z",
+  "ruleVersion": "2.0",
+  "categories": ["Promotions", "Eligibility"],
+  "dependencies": ["CustomerRule1", "AccountRule1"]
+}</pre>
+  </details>
+
+  <details open>
+    <summary>cache</summary>
+    <pre>{
+  "cachable": true,
+  "ttl": 3600,
+  "cacheKey": "${ruleName}_${personaId}"
+}</pre>
+  </details>
+
+  <details open>
+    <summary>security</summary>
+    <pre>{
+  "default": {
+    "mask": false,
+    "tokenize": false,
+    "encryptionKey": "kms-key-alias"
+  },
+  "overrides": {
+    "sensitiveParameters": {
+      "customerId": {
+        "mask": true,
+        "tokenize": true,
+        "encryptionKey": "kms-key-alias"
+      }
+    }
+  }
+}</pre>
+  </details>
+
+  <details open>
+    <summary>actions</summary>
+    <pre>[
+  { "type": "always", "actions": [ /* action list here */ ] },
+  { "type": "onSuccess", "actions": [ /* action list here */ ] },
+  { "type": "onFailure", "actions": [ /* action list here */ ] },
+  { "type": "onError", "actions": [ /* action list here */ ] },
+  { "type": "afterRun", "actions": [ /* action list here */ ] }
+]</pre>
+  </details>
+
+  <details open>
+    <summary>parameters</summary>
+    <pre>{
+  "customerId": {
+    "value": "$customerId",
+    "mandatory": true,
+    "description": "Unique identifier for the customer.",
+    "type": "string"
+  },
+  "accountNumber": {
+    "value": "$accountNumber",
+    "mandatory": false,
+    "description": "Account number (optional).",
+    "type": "string"
+  },
+  "branchId": {
+    "value": "$branchId",
+    "mandatory": false,
+    "description": "Branch identifier (optional).",
+    "optionalFilterBehavior": "skipBlock",
+    "enum": ["skipBlock", "ignoreFilter", "treatAsNoData"],
+    "type": "string"
+  },
+  "customerStatus": {
+    "value": "$customerStatus",
+    "mandatory": true,
+    "default": "active",
+    "description": "Current status of the customer.",
+    "type": "string",
+    "allowedValues": ["active", "inactive", "pending"]
+  },
+  "personaId": {
+    "value": "$personaId",
+    "mandatory": true,
+    "type": "MID",
+    "description": "Marketing ID."
+  },
+  "expectedFirstName": {
+    "value": "$expectedFirstName",
+    "mandatory": true,
+    "type": "string",
+    "description": "Expected first name for comparison."
+  }
+}</pre>
+  </details>
+
+  <details open>
+    <summary>preCondition</summary>
+    <pre>{
+  "op": "and",
+  "terms": [
+    {
+      "op": "exists",
+      "entityName": "customer",
+      "entityType": "data",
+      "filters": [
+        { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+      ]
+    },
+    {
+      "op": "not",
+      "terms": [
+        {
+          "entityName": "calendar",
+          "entityType": "data",
+          "type": "function",
+          "name": "getCurrentDayOfWeek",
+          "attributes": ["dayOfWeek"],
+          "op": "or",
+          "terms": [
+            { "field": "dayOfWeek", "type": "string", "comparison": "equals", "value": "Saturday" },
+            { "field": "dayOfWeek", "type": "string", "comparison": "equals", "value": "Sunday" }
+          ]
+        }
+      ]
+    }
+  ]
+}</pre>
+  </details>
+
+  <details open>
+    <summary>ruleDefinition</summary>
+    <pre>{
+  "op": "and",
+  "terms": [
+    {
+      "op": "or",
+      "terms": [
+        {
+          "entityName": "customer",
+          "entityType": "data",
+          "filters": [
+            { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } },
+            { "field": "status", "type": "string", "comparison": "equals", "value": { "parameter": "$customerStatus" } }
+          ]
+        },
+        {
+          "op": "and",
+          "terms": [
+            { "field": "customer.age", "type": "integer", "comparison": "gte", "value": 18 },
+            { "field": "customer.tags", "type": "array", "comparison": "contains", "value": "VIP" }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "ifelse",
+      "terms": [
+        {
+          "op": "if",
+          "terms": [
+            { "field": "customer.status", "type": "string", "comparison": "neq", "value": "active" },
+            {
+              "entityName": "account",
+              "entityType": "data",
+              "filters": [
+                { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+              ],
+              "op": "and",
+              "terms": [
+                { "field": "balance", "type": "number", "comparison": "gt", "value": 5000 }
+              ]
+            }
+          ]
+        },
+        {
+          "op": "elif",
+          "terms": [
+            { "field": "customer.status", "type": "string", "comparison": "equals", "value": "active" },
+            {
+              "entityName": "account",
+              "entityType": "data",
+              "filters": [
+                { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+              ],
+              "op": "and",
+              "terms": [
+                { "field": "householdIncome", "type": "number", "comparison": "gt", "value": 1000 }
+              ]
+            }
+          ]
+        },
+        {
+          "op": "else",
+          "terms": [
+            {
+              "entityName": "account",
+              "entityType": "data",
+              "filters": [
+                { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+              ],
+              "op": "and",
+              "terms": [
+                { "field": "balance", "type": "number", "comparison": "gt", "value": 500 }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "exists",
+      "entityName": "orders",
+      "filters": [
+        { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } },
+        { "field": "status", "type": "string", "comparison": "equals", "value": "pending" }
+      ]
+    },
+    {
+      "field": "customer.emails",
+      "type": "array",
+      "comparison": "any",
+      "term": {
+        "field": "element.email",
+        "type": "string",
+        "comparison": "contains",
+        "value": "gmail.com"
+      }
+    },
+    {
+      "field": "customer.emails",
+      "type": "array",
+      "comparison": "all",
+      "term": {
+        "field": "element.isValid",
+        "type": "boolean",
+        "comparison": "equals",
+        "value": true
+      }
+    },
+    {
+      "field": "customer.dateOfBirth",
+      "type": "date",
+      "comparison": "lt",
+      "value": {
+        "expr": {
+          "language": "juel",
+          "expression": "${date:addDays(date:now(), -6570)}"
+        }
+      }
+    },
+    {
+      "field": "customer.middleName",
+      "type": "string",
+      "comparison": "isNull"
+    },
+    {
+      "field": "customer.firstName",
+      "type": "string",
+      "comparison": "startsWith",
+      "value": {
+        "expr": {
+          "language": "juel",
+          "expression": "${string:trim($field)}",
+          "source": "LHS"
+        }
+      }
+    },
+    {
+      "field": "customer.firstName",
+      "type": "string",
+      "comparison": "startsWith",
+      "value": "A"
+    },
+    {
+      "field": "customer.firstName",
+      "type": "string",
+      "comparison": "equals",
+      "value": {
+        "expr": {
+          "language": "juel",
+          "expression": "${string:toLowercase($field)}",
+          "source": "LHS"
+        }
+      },
+      "key": "firstNameCheck",
+      "onError": {
+        "strategy": "evaluateFalse",
+        "errorCode": "FIRST_NAME_CHECK_FAILED"
+      }
+    },
+    {
+      "field": "customer.email",
+      "type": "string",
+      "comparison": "matches",
+      "value": "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+    },
+    {
+      "entityName": "account",
+      "entityType": "data",
+      "filters": [
+        { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+      ],
+      "op": "and",
+      "terms": [
+        { "field": "account_type", "type": "string", "comparison": "equals", "value": "SB", "key": "accountType" },
+        { "field": "balance", "type": "number", "comparison": "gt", "value": 1000, "key": "accountBalance" },
+        { "field": "balance", "type": "number", "aggregator": {
+            "type": "sum",
+            "enum": ["sum", "count", "min", "max"],
+            "filters": [
+              { "field": "flag", "type": "string", "comparison": "equals", "value": "open" }
+            ]
+          },
+          "comparison": "gt",
+          "value": 20000,
+          "key": "openAccountBalanceSum"
+        }
+      ]
+    },
+    {
+      "entityName": "fraudCheck",
+      "entityType": "lambda",
+      "functionName": "arn:aws:lambda:your-region:your-account-id:function:fraudCheckFunction",
+      "async": true,
+      "parameters": {
+        "customerId": "$customerId",
+        "transactionDetails": "$transactionDetails"
+      },
+      "comparison": "equals",
+      "value": true
+    },
+    {
+      "entityName": "audienceSegments",
+      "entityType": "data",
+      "filters": [
+        { "field": "customer_id", "type": "string", "comparison": "equals", "value": { "parameter": "$customerId" } }
+      ],
+      "op": "and",
+      "terms": [
+        { "field": "flowId", "type": "integer", "comparison": "equals", "value": 30 },
+        { "field": "varId", "type": "integer", "comparison": "equals", "value": 40 }
+      ]
+    },
+    {
+      "entityName": "branch",
+      "entityType": "data",
+      "filters": [
+        { "field": "branchId", "type": "string", "comparison": "equals", "value": { "parameter": "$branchId" }, "optional": true }
+      ],
+      "op": "and",
+      "terms": [
+        { "field": "location", "type": "string", "comparison": "equals", "value": "Bengaluru" },
+        {
+          "entityName": "suppliers",
+          "entityType": "data",
+          "type": "api",
+          "endpoint": "https://example.com/api/suppliers",
+          "filters": [
+            { "field": "supplierType", "type": "string", "comparison": "equals", "value": "Gold" },
+            { "field": "supplierStatus", "type": "string", "comparison": "equals", "value": "approved" }
+          ]
+        }
+      ]
+    },
+    {
+      "entityName": "calendar",
+      "entityType": "data",
+      "type": "function",
+      "name": "getCurrentDayOfWeek",
+      "attributes": ["dayOfWeek"],
+      "op": "and",
+      "terms": [
+        { "field": "dayOfWeek", "type": "string", "comparison": "equals", "value": "Friday" }
+      ]
+    },
+    {
+      "entityName": "CustomerMeetsSpecialCriteria",
+      "entityType": "rule",
+      "ruleName": "CustomerRule1",
+      "ruleEngine": "default",
+      "op": "and",
+      "terms": [
+        { "comparison": "equals", "value": true }
+      ]
+    },
+    {
+      "entityName": "AccountMeetsSpecialCriteria",
+      "entityType": "rule",
+      "ruleName": "AccountRule1",
+      "ruleEngine": "RE_FI",
+      "op": "and",
+      "terms": [
+        { "comparison": "equals", "value": true }
+      ]
+    },
+    {
+      "field": "customer.customer_group",
+      "type": "string",
+      "comparison": "inDataset",
+      "value": {
+        "entityName": "groups_master",
+        "entityType": "data",
+        "field": "group",
+        "type": "array"
+      }
+    }
+  ]
+}</pre>
+  </details>
+
+  <details open>
+    <summary>dataExtraction</summary>
+    <pre>[
+  {
+    "entityName": "customerDetails",
+    "entityType": "data",
+    "filters": [
+      { "field": "customer_id" }
+    ],
+    "extractedAttributes": [
+      "customer_id",
+      "firstName",
+      "lastName",
+      "email",
+      "segment"
+    ],
+    "aggregator": {
+      "type": "sum",
+      "expr": {
+        "language": "juel",
+        "expression": "${sum(customerDetails.purchaseAmount)}"
+      }
+    },
+    "transformation": {
+      "expr": {
+        "language": "juel",
+        "expression": "${string:toUpperCase(firstName)}",
+        "source": "RHS"
+      }
+    }
+  }
+]</pre>
+  </details>
+
+  <details open>
+    <summary>dataAccess</summary>
+    <pre>{
+  "dataSources": [
+    {
+      "alias": "customerDb",
+      "type": "database",
+      "connection": "customerDbConnection",
+      "entityName": "customer",
+      "query": "getCustomer",
+      "attributes": [
+        "customer_id",
+        "age",
+        "status",
+        "customer_group",
+        "group_id",
+        "dateOfBirth",
+        "firstName",
+        "middleName",
+        "emails",
+        "tags"
+      ]
+    },
+    {
+      "alias": "orderDb",
+      "type": "database",
+      "connection": "orderDbConnection",
+      "entityName": "orders",
+      "query": "getOrders",
+      "attributes": [
+        "customer_id",
+        "status",
+        "order_date",
+        "total_amount"
+      ]
+    },
+    {
+      "alias": "groupsDb",
+      "type": "database",
+      "connection": "customerDbConnection",
+      "entityName": "groups",
+      "query": "getGroups",
+      "attributes": [
+        "group_id",
+        "group"
+      ]
+    }
+  ],
+  "apis": [
+    {
+      "alias": "accountApi",
+      "type": "api",
+      "endpoint": "https://example.com/api/accounts",
+      "attributes": [
+        "customer_id",
+        "account_number",
+        "account_type",
+        "balance",
+        "flag"
+      ]
+    },
+    {
+      "alias": "supplierApi",
+      "type": "api",
+      "endpoint": "https://example.com/api/suppliers",
+      "attributes": [
+        "supplier_type",
+        "supplier_status"
+      ]
+    },
+    {
+      "alias": "branchApi",
+      "type": "api",
+      "endpoint": "https://example.com/api/branches",
+      "attributes": [
+        "branch_id",
+        "location"
+      ]
+    }
+  ],
+  "functions": [
+    {
+      "entityName": "calendar",
+      "type": "function",
+      "name": "getCurrentDayOfWeek",
+      "attributes": ["dayOfWeek"]
+    }
+  ],
+  "cloudServices": [
+    {
+      "entityName": "fraudCheck",
+      "type": "awsLambda",
+      "functionName": "arn:aws:lambda:your-region:your-account-id:function:fraudCheckFunction",
+      "parameters": {
+        "customerId": "$customerId",
+        "transactionDetails": "$transactionDetails"
+      },
+      "attributes": [
+        "fraudScore",
+        "isFraudulent"
+      ],
+      "onError": [
+        {
+          "type": "log",
+          "message": "Error invoking Lambda function: ${errorMessage}"
+        }
+      ]
+    },
+    {
+      "entityName": "customerSegmentation",
+      "type": "awsLambda",
+      "functionName": "arn:aws:lambda:india-mumbai:pzn:function:customerSegmentationFunction",
+      "parameters": {
+        "customerId": "$customerId",
+        "customerAttributes": {
+          "age": "$customer.age",
+          "location": "$customer.location"
+        }
+      },
+      "attributes": [
+        "segmentId",
+        "segmentName"
+      ],
+      "onError": [
+        {
+          "type": "log",
+          "message": "Error invoking Lambda function: ${errorMessage}"
+        }
+      ]
+    },
+    {
+      "entityName": "customerSentiment",
+      "type": "sagemakerEndpoint",
+      "endpointName": "customer-sentiment-model",
+      "inputType": "json",
+      "outputType": "json",
+      "attributes": [
+        "sentimentScore",
+        "sentimentLabel"
+      ],
+      "onError": [
+        {
+          "type": "log",
+          "message": "Error invoking SageMaker endpoint: ${errorMessage}"
+        }
+      ]
+    },
+    {
+      "entityName": "customerTransactions",
+      "type": "s3Bucket",
+      "bucketName": "my-customer-data-bucket",
+      "filePath": "transactions/2024/customer-transactions.csv",
+      "fileFormat": "csv",
+      "delimiter": ",",
+      "header": true,
+      "filter": {
+        "filterName": "recentTransactions",
+        "field": "transactionDate",
+        "comparison": "gt",
+        "value": "2024-01-01"
+      },
+      "onError": [
+        {
+          "type": "log",
+          "message": "Error accessing S3 bucket: ${errorMessage}"
+        }
+      ]
+    }
+  ],
+  "graphql": [
+    {
+      "entityName": "audienceSegments",
+      "type": "graphql",
+      "endpoint": "https://api.example.com/graphql",
+      "query": "query GetAudienceSegment($account_number) { segment { segmentID varID Name } }",
+      "mapping": {
+        "segmentID": "$.id",
+        "varID": "$.varID",
+        "Name": "$.Name"
+      },
+      "onError": {
+        "action": "log",
+        "message": "Error accessing product GraphQL endpoint: ${error}"
+      }
+    }
+  ],
+  "connections": [
+    {
+      "name": "customerDbConnection",
+      "type": "jdbc",
+      "url": "jdbc:mysql://your-db-host:3306/your-db-name",
+      "username": "$DB_USER",
+      "password": "$DB_PASSWORD"
+    },
+    {
+      "name": "orderDbConnection",
+      "type": "jdbc",
+      "url": "jdbc:mysql://your-db-host:3306/your-order-db",
+      "username": "$DB_USER",
+      "password": "$DB_PASSWORD"
+    }
+  ]
+}</pre>
+  </details>
+
+  <details open>
+    <summary>result</summary>
+    <pre>{
+  "ruleResult": {
+    "status": { "type": "string", "enum": ["passed", "failed", "error"] },
+    "timestamp": { "type": "date" },
+    "executionTimeMs": { "type": "integer", "description": "Execution time in milliseconds" },
+    "failureReasons": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" }
+        }
+      }
+    }
+  },
+  "extractedData": {
+    "customerDetails": {
+      "customer_id": "12345",
+      "firstName": "John",
+      "lastName": "Doe",
+      "email": "john.doe@example.com",
+      "segment": "VIP"
+    }
+  },
+  "ruleAttributes": {
+    "customer": { "age": 34 },
+    "account": { "balance": 5000 }
+  },
+  "outcome": {
+    "success": {
+      "returnValues": [
+        { "name": "offerId", "value": "XYZ123", "type": "string" },
+        { "name": "discountCode", "value": "SUMMER20", "type": "string" }
+      ]
+    },
+    "failure": {
+      "returnValues": [
+        { "name": "reasonCode", "value": "INELIGIBLE_AGE", "type": "string" },
+        { "name": "rejectionMessage", "value": "Customer does not meet age requirements.", "type": "string" }
+      ]
+    },
+    "error": {
+      "returnValues": [
+        { "name": "errorCode", "value": "DATA_ACCESS_ERROR", "type": "string" },
+        { "name": "errorMessage", "value": "Error accessing customer data.", "type": "string" }
+      ]
+    }
+  }
+}</pre>
+  </details>
+</details>
+
+</body>
+</html>

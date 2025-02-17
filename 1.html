@@ -1,0 +1,287 @@
+<table border="1" cellpadding="5" cellspacing="0" style="border-collapse: collapse; width:100%;">
+  <thead>
+    <tr style="background-color:#f2f2f2;">
+      <th>Capability</th>
+      <th>Description</th>
+      <th>JSON Snippet Example</th>
+    </tr>
+  </thead>
+  <tbody>
+    <tr>
+      <td>Dynamic Parameter Substitution</td>
+      <td>Dynamically injects runtime values into the rule using parameter references, ensuring reusability and flexibility.</td>
+      <td>
+        <pre>
+{
+  "customerId": { 
+    "value": "$customerId", 
+    "mandatory": true, 
+    "type": "string" 
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Advanced Branching Logic</td>
+      <td>Supports conditional branching via an <code>ifelse</code> block with nested <code>if</code>, <code>elif</code>, and <code>else</code> branches.</td>
+      <td>
+        <pre>
+{
+  "op": "ifelse",
+  "terms": [
+    {
+      "op": "if",
+      "terms": [
+        { "field": "customer.status", "comparison": "neq", "value": "active" },
+        {
+          "entityName": "account",
+          "op": "and",
+          "terms": [
+            { "field": "balance", "comparison": "gt", "value": 5000 }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "elif",
+      "terms": [
+        { "field": "customer.status", "comparison": "equals", "value": "active" },
+        {
+          "entityName": "account",
+          "op": "and",
+          "terms": [
+            { "field": "householdIncome", "comparison": "gt", "value": 1000 }
+          ]
+        }
+      ]
+    },
+    {
+      "op": "else",
+      "terms": [
+        {
+          "entityName": "account",
+          "op": "and",
+          "terms": [
+            { "field": "balance", "comparison": "gt", "value": 500 }
+          ]
+        }
+      ]
+    }
+  ]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Nesting of Terms</td>
+      <td>Enables deeply nested logical expressions, allowing rules to combine conditions in multiple layers for complex evaluations.</td>
+      <td>
+        <pre>
+{
+  "op": "and",
+  "terms": [
+    { "field": "customer.age", "comparison": "gte", "value": 18 },
+    {
+      "op": "or",
+      "terms": [
+        { "field": "customer.tags", "comparison": "contains", "value": "VIP" }
+      ]
+    }
+  ]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Precondition Evaluation</td>
+      <td>Enforces initial checks (e.g., customer existence, non-weekend execution) before executing the main rule logic.</td>
+      <td>
+        <pre>
+{
+  "preCondition": {
+    "op": "exists",
+    "entityName": "customer",
+    "filters": [
+      { "field": "customer_id", "comparison": "equals", "value": { "parameter": "$customerId" } }
+    ]
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Core Rule Evaluation</td>
+      <td>Uses nested logical operators (and, or, exists, not) to evaluate conditions based on field comparisons, expressions, and aggregated data.</td>
+      <td>
+        <pre>
+{
+  "op": "and",
+  "terms": [
+    { "field": "customer.status", "comparison": "equals", "value": { "parameter": "$customerStatus" } }
+  ]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Calling Different Rule Engines</td>
+      <td>Supports integration with multiple rule engines via a <code>ruleEngine</code> property to delegate processing to specialized engines.</td>
+      <td>
+        <pre>
+{
+  "entityName": "CustomerMeetsSpecialCriteria",
+  "entityType": "rule",
+  "ruleEngine": "RE_FI",
+  "op": "and",
+  "terms": [
+    { "comparison": "equals", "value": true }
+  ]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Flexible Filter Conditions</td>
+      <td>Provides robust filtering using various operators (equals, neq, gt, etc.) with support for literal and dynamic values.</td>
+      <td>
+        <pre>
+{
+  "field": "customer.email",
+  "comparison": "matches",
+  "value": "^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$"
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Aggregation and Transformation</td>
+      <td>Enables data enrichment by applying aggregation functions (e.g., sum) and transformation expressions (e.g., string manipulation) on extracted data.</td>
+      <td>
+        <pre>
+{
+  "aggregator": {
+    "type": "sum",
+    "expr": {
+      "language": "juel",
+      "expression": "${sum(customerDetails.purchaseAmount)}"
+    }
+  },
+  "transformation": {
+    "expr": {
+      "language": "juel",
+      "expression": "${string:toUpperCase(firstName)}",
+      "source": "RHS"
+    }
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Data Extraction for Enrichment</td>
+      <td>Separates extraction logic from rule evaluation, enabling selective extraction of attributes from external data sources.</td>
+      <td>
+        <pre>
+{
+  "entityName": "customerDetails",
+  "entityType": "data",
+  "filters": [{ "field": "customer_id" }],
+  "extractedAttributes": ["customer_id", "firstName", "lastName", "email", "segment"]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Comprehensive Data Access</td>
+      <td>Integrates with external data sources (databases, APIs, cloud services, GraphQL) and centralizes connection configuration.</td>
+      <td>
+        <pre>
+{
+  "dataAccess": {
+    "dataSources": [
+      { "alias": "customerDb", "type": "database", "query": "getCustomer" }
+    ],
+    "apis": [
+      { "alias": "accountApi", "type": "api", "endpoint": "https://example.com/api/accounts" }
+    ]
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Caching Support</td>
+      <td>Provides caching with TTL and dynamic cache keys to optimize performance by reusing evaluated rule results.</td>
+      <td>
+        <pre>
+{
+  "cache": {
+    "cachable": true,
+    "ttl": 3600,
+    "cacheKey": "${ruleName}_${personaId}"
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Centralized Security</td>
+      <td>Centralizes security settings (masking, tokenization, encryption) with global defaults and per-parameter overrides.</td>
+      <td>
+        <pre>
+{
+  "security": {
+    "default": { "mask": false, "tokenize": false, "encryptionKey": "kms-key-alias" },
+    "overrides": {
+      "sensitiveParameters": {
+        "customerId": { "mask": true, "tokenize": true, "encryptionKey": "kms-key-alias" }
+      }
+    }
+  }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Robust Error Handling</td>
+      <td>Configures error-handling strategies (retry, evaluateFalse, log, etc.) to ensure graceful degradation and debugging support.</td>
+      <td>
+        <pre>
+{
+  "onError": { "strategy": "retry", "attempts": 3, "delay": 1000 }
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Rich Action Handling</td>
+      <td>Defines and sequences actions for multiple execution stages (always, onSuccess, onFailure, onError, afterRun).</td>
+      <td>
+        <pre>
+{
+  "actions": [
+    { "type": "always", "actions": [{ "sequence": 1, "type": "postToQueue", "queueName": "eligibleCustomers" }] }
+  ]
+}
+        </pre>
+      </td>
+    </tr>
+    <tr>
+      <td>Result Structuring</td>
+      <td>Organizes output into a structured result with execution metadata, extracted enrichment data, computed attributes, and outcome return values.</td>
+      <td>
+        <pre>
+{
+  "result": {
+    "ruleResult": { "status": "passed", "timestamp": "2024-03-03T15:30:00Z" },
+    "extractedData": { "customerDetails": { "customer_id": "12345", "firstName": "John" } },
+    "ruleAttributes": { "customer": { "age": 34 } },
+    "outcome": { "success": { "returnValues": [ { "name": "offerId", "value": "XYZ123" } ] } }
+  }
+}
+        </pre>
+      </td>
+    </tr>
+  </tbody>
+</table>
