@@ -1,183 +1,187 @@
-- version: 3.1
-- metadata
-  - rule_name: Combined Eligibility Rule
-- actions
-  -
-    - type: post_to_queue
-    - queue_name: eligible_customers
-  -
-    - type: log
-    - message: Rule triggered for eligibility
-- extensions
-  - custom_functions
-    -
-      - name: myCustomFunction
-      - description: A custom function
-- parameters
-  - customerId
-    - value: $customerId
-    - mandatory: true
-  - accountNumber
-    - value: $accountNumber
-    - mandatory: false
-  - branchId
-    - value: $branchId
-    - mandatory: false
-  - customerStatus
-    - value: $customerStatus
-    - mandatory: true
-- conditions
-  -
-    - entity: customer
-    - filters
-      -
-        - field: customer_id
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: $customerId
-      -
-        - field: status
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: $customerStatus
-    - op: and
-    - terms
-      -
-        - field: age
-        - type: integer
-        - function: comp
-        - operator: gt
-        - value
-          - expr
-            - language: juel
-            - expression: ${18 + 80}
-  -
-    - entity: account
-    - filters
-      -
-        - field: customer_id
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: $customerId
-    - op: and
-    - terms
-      -
-        - field: account_type
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: SB
-      -
-        - field: balance
-        - type: number
-        - function: comp
-        - operator: gt
-        - value: 1000
-      -
-        - field: balance
-        - type: number
-        - function: sum
-        - filters
-          -
-            - field: flag
-            - type: string
-            - function: comp
-            - operator: equals
-            - value
-              - expr
-                - language: juel
-                - expression: ${'open'}
-        - operator: equals
-        - value: 20000
-  -
-    - entity: audienceSegments
-    - filters
-      -
-        - field: customer_id
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: $customerId
-    - op: or
-    - terms
-      -
-        - op: and
-        - terms
-          -
-            - field: flow_id
-            - type: integer
-            - function: comp
-            - operator: equals
-            - value: 30
-          -
-            - field: var_id
-            - type: integer
-            - function: comp
-            - operator: equals
-            - value: 40
-      -
-        - op: and
-        - terms
-          -
-            - field: flow_id
-            - type: integer
-            - function: comp
-            - operator: equals
-            - value: 30
-          -
-            - field: var_id
-            - type: integer
-            - function: comp
-            - operator: equals
-            - value: 45
-  -
-    - entity: branch
-    - filters
-      -
-        - field: branch_id
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: $branchId
-        - optional: true
-    - op: and
-    - terms
-      -
-        - field: location
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: Bengaluru
-      -
-        - entity: suppliers
-        - op: and
-        - terms
-          -
-            - field: supplier_type
-            - type: string
-            - function: comp
-            - operator: equals
-            - value: Gold
-          -
-            - field: supplier_status
-            - type: string
-            - function: comp
-            - operator: equals
-            - value: approved
-  -
-    - entity: calendar
-    - filters:
-    - op: and
-    - terms
-      -
-        - field: day_of_week
-        - type: string
-        - function: comp
-        - operator: equals
-        - value: Friday
-
-
-        
+RuleDefinitionJSON
+├── ruleGrammarVersion (string)
+├── metadata (Metadata)
+│   ├── uid (string)
+│   ├── ruleName (string)
+│   ├── domain (string)
+│   ├── description (string)
+│   ├── copiedFromRule (string)
+│   ├── createdBy (string)
+│   ├── approvedBy (string)
+│   ├── status (StatusEnum - string enum: active, inactive, draft, pendingApproval, deprecated)
+│   ├── copyAllowed (boolean)
+│   ├── appearsInSearch (boolean)
+│   ├── usageScopes (UsageScopes - array)
+│   │   └── UsageScope (UsageScope)
+│   │       ├── scopeName (string)
+│   │       └── allowed (boolean)
+│   ├── maxScopeAssociations (integer)
+│   ├── isFinal (boolean)
+│   ├── allowAllScopes (boolean)
+│   ├── ruleExpiry (RuleExpiry)
+│   │   ├── expiryFlag (ExpiryFlagEnum - string enum: Y, N)
+│   │   └── dateOfExpiry (DateTime String)
+│   ├── createdDate (DateTime String)
+│   ├── lastUpdated (DateTime String)
+│   ├── ruleVersion (string)
+│   ├── categories (StringArray - array of string)
+│   └── dependencies (StringArray - array of string)
+├── cache (Cache)
+│   ├── cachable (boolean)
+│   ├── ttl (integer)
+│   └── cacheKey (string)
+├── logging (Logging)
+│   ├── defaultLevel (LogLevelEnum - string enum: INFO, DEBUG, WARNING, ERROR, CRITICAL)
+│   ├── defaultDestination (LogDestinationEnum - string enum: console, file, cloud)
+│   ├── appendTimestamp (boolean)
+│   └── format (string)
+├── security (Security)
+│   ├── permissions (Permissions)
+│   │   ├── owners (Owners - array)
+│   │   │   └── Owner (Owner)
+│   │   │       ├── userId (string)
+│   │   │       └── privileges (Privileges - array)
+│   │   │           └── PrivilegeEnum (PrivilegeEnum - string enum: view, read, copy, write, execute)
+│   │   ├── groups (Groups - array)
+│   │   │   └── Group (Group)
+│   │   │       ├── groupId (string)
+│   │   │       └── privileges (Privileges - array)
+│   │   │           └── PrivilegeEnum (PrivilegeEnum - string enum: view, read, copy, write, execute)
+│   │   └── others (OthersPrivileges)
+│   │       └── privileges (Privileges - array)
+│   │           └── PrivilegeEnum (PrivilegeEnum - string enum: view, read, copy, write, execute)
+│   ├── logEncryption (LogEncryption)
+│   │   ├── enabled (boolean)
+│   │   ├── algorithm (EncryptionAlgorithmEnum - string enum: AES-256, RSA)
+│   │   ├── keyReference (string)
+│   │   └── encryptionContext (EncryptionContext)
+│   │       ├── purpose (string)
+│   │       └── environment (EnvironmentEnum - string enum: production, development, staging)
+│   └── fieldEncryption (FieldEncryption)
+│       ├── defaultAlgorithm (EncryptionAlgorithmEnum - string enum: AES-256, RSA)
+│       └── defaultKeyReference (string)
+├── attributeDefinitions (AttributeDefinitions - object - dynamic properties: EntityAttributeDefinition)
+│   └── EntityAttributeDefinition (EntityAttributeDefinition - object - dynamic properties: AttributeDefinition)
+│       └── AttributeDefinition (AttributeDefinition)
+│           ├── type (AttributeTypeEnum - string enum: string, integer, number, boolean, date, array)
+│           ├── description (string)
+│           ├── encrypt (boolean) (optional)
+│           ├── pattern (string) (optional)
+│           ├── minimum (integer) (optional)
+│           ├── maximum (integer) (optional)
+│           └── allowedValues (StringArray - array of string) (optional)
+├── actions (Actions - array)
+│   └── ActionBlock (ActionBlock)
+│       ├── type (ActionBlockTypeEnum - string enum: always, onSuccess, onFailure, onError, afterRun)
+│       └── actions (ActionSequence - array)
+│           └── Action (Action)
+│               ├── sequence (integer)
+│               ├── type (ActionTypeEnum - string enum: postToQueue, log, sendEmail, conditional, sendSMS, notifyAdmin, custom)
+│               └── ActionProperties (dynamic based on ActionTypeEnum - see detailed description)
+├── parameters (Parameters - object - dynamic properties: ParameterDefinition)
+│   └── ParameterDefinition (ParameterDefinition)
+│       ├── value (string)
+│       ├── mandatory (boolean)
+│       ├── description (string)
+│       ├── type (ParameterTypeEnum - string enum: string, integer, number, boolean, date, array, MID)
+│       ├── optionalFilterBehavior (OptionalFilterBehaviorEnum - string enum: skipBlock, ignoreFilter, treatAsNoData) (optional)
+│       ├── default (ValueType - string, integer, number, boolean, DateTime String, Null) (optional)
+│       └── allowedValues (StringArray - array of string) (optional)
+├── preCondition (LogicalExpression)
+│   └── LogicalExpression (LogicalExpression)  (recursive structure - can nest LogicalExpression or Condition)
+│       ├── op (OperatorEnum - string enum: and, or, not, exists)
+│       └── terms (TermArray - array)
+│           └── Term (Term - can be LogicalExpression or Condition)
+├── ruleDefinition (LogicalExpression)
+│   └── LogicalExpression (LogicalExpression) (recursive structure - can nest LogicalExpression or Condition)
+│       ├── op (OperatorEnum - string enum: and, or, not, exists)
+│       └── terms (TermArray - array)
+│           └── Term (Term - can be LogicalExpression or Condition)
+├── dataExtraction (DataExtractions - array)
+│   └── DataExtraction (DataExtraction)
+│       ├── entityName (string)
+│       ├── entityType (EntityTypeEnum - string enum: data)
+│       ├── filters (StringArray - array of string)
+│       ├── extractedAttributes (StringArray - array of string)
+│       ├── aggregator (Aggregator) (optional)
+│       │   ├── type (AggregatorTypeEnum - string enum: sum, count, min, max)
+│       │   ├── enum (AggregatorTypeEnum - string enum: sum, count, min, max)
+│       │   ├── filters (Filters - array)
+│       │   │   └── Filter (Filter)
+│       │   │       ├── field (string)
+│       │   │       ├── type (AttributeTypeEnum - string enum: string, integer, number, boolean, date, array)
+│       │   │       ├── comparison (ComparisonOperatorEnum - string enum: equals, notEquals, gt, lt, gte, lte, contains, notContains, startsWith, endsWith, matches, isNull, isNotNull, any, all, inDataset)
+│       │   │       ├── value (ValueExpression)
+│       │   │       ├── optional (boolean) (optional)
+│       │   │       └── term (Term - can be LogicalExpression or Condition) (optional)
+│       │   └── expr (JUEL) (optional)
+│       └── transformation (Transformation) (optional)
+│           ├── expr (JUEL)
+│           └── source (string enum: LHS, RHS) (optional)
+├── dataContext (DataContext)
+│   ├── dataSources (DataSources - array)
+│   │   └── DataSource (DataSource)
+│   │       ├── alias (string)
+│   │       ├── type (string enum: database)
+│   │       ├── connection (string)
+│   │       ├── entityName (string)
+│   │       ├── query (string)
+│   │       └── attributes (StringArray - array of string)
+│   ├── apis (APIs - array)
+│   │   └── API (API)
+│   │       ├── alias (string)
+│   │       ├── type (string enum: api)
+│   │       ├── endpoint (string)
+│   │       └── attributes (StringArray - array of string)
+│   ├── functions (Functions - array)
+│   │   └── Function (Function)
+│   │       ├── entityName (string)
+│   │       ├── type (string enum: function)
+│   │       ├── name (string)
+│   │       └── attributes (StringArray - array of string)
+│   ├── cloudServices (CloudServices - array)
+│   │   └── CloudService (CloudService - oneOf: AWSLambda, SageMakerEndpoint, S3Bucket - see details in description)
+│   │       ├── (Depending on CloudService type: properties vary - see detailed grammar)
+│   └── graphql (GraphQLs - array)
+│   │   └── GraphQL (GraphQL)
+│   │       ├── entityName (string)
+│   │       ├── type (string enum: graphql)
+│   │       ├── endpoint (string)
+│   │       ├── query (string)
+│   │       ├── mapping (object)
+│   │       └── onError (object)
+│   └── connections (Connections - array)
+│       └── Connection (Connection - oneOf: JDBC - see details in description)
+│           └── (Depending on Connection type: properties vary - see detailed grammar)
+└── result (Result)
+    ├── ruleResult (RuleResult_Result)
+    │   ├── status (ResultStatus_Result)
+    │   │   ├── type (string enum: string)
+    │   │   └── enum (ResultStatusEnum - string enum: passed, failed, error)
+    │   ├── timestamp (ResultTimestamp_Result)
+    │   │   └── type (string enum: date)
+    │   ├── executionTimeMs (ExecutionTimeMs_Result)
+    │   │   ├── type (string enum: integer)
+    │   │   └── description (string)
+    │   └── failureReasons (FailureReasons_Result)
+    │       └── FailureReasonItem_Result
+    │           └── properties (FailureReasonProperties_Result)
+    │               ├── code (FailureReasonCode_Result)
+    │               │   └── type (string enum: string)
+    │               └── message (FailureReasonMessage_Result)
+    │                   └── type (string enum: string)
+    ├── extractedData (ExtractedData_Result - object - dynamic properties: ExtractedEntityData - object)
+    ├── ruleAttributes (RuleAttributes_Result - object - dynamic properties: RuleEntityAttributes - object)
+    └── outcome (Outcome_Result)
+        ├── success (SuccessOutcome_Result)
+        │   └── returnValues (ReturnValues_Result - array)
+        │       └── ReturnValue_Result
+        │           ├── name (string)
+        │           ├── value (ValueType - string, integer, number, boolean, DateTime String, Null)
+        │           └── type (ParameterTypeEnum - string enum: string, integer, number, boolean, date, MID)
+        └── failure (FailureOutcome_Result)
+            └── returnValues (ReturnValues_Result - array)
+                └── ReturnValue_Result
+                    ├── name (string)
+                    ├── value (ValueType - string, integer, number, boolean, DateTime String, Null)
+                    └── type (ParameterTypeEnum - string enum: string, integer, number, boolean, date, MID)
