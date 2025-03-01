@@ -1,0 +1,150 @@
+{
+  "ruleGrammarVersion": "1.0",
+  "metadata": {
+    "ruleName": "SimpleEligibilityRule",
+    "domain": "Eligibility",
+    "description": "A minimal example rule determining basic eligibility.",
+    "status": "active",
+    
+    "copyAllowed": true,
+    "appearsInSearch": true,
+    "usageScopes": [
+      {
+        "scopeName": "BasicLoanWorkflow",
+        "allowed": true
+      }
+    ],
+    "maxScopeAssociations": 1,
+    "allowAllScopes": false,
+    
+    "createdBy": "demoUser",
+    "createdDate": "2024-01-01",
+    "ruleVersion": "1.0"
+  },
+  
+  "security": {
+    "permissions": {
+      "owners": [
+        {
+          "userId": "user1234",
+          "privileges": ["view", "read", "copy", "write", "execute"]
+        }
+      ],
+      "groups": [
+        {
+          "groupId": "marketingTeam",
+          "privileges": ["view", "read"]
+        }
+      ],
+      "others": {
+        "privileges": ["view"]
+      }
+    }
+  },
+  
+  "parameters": {
+    "customerId": {
+      "value": "$customerId",
+      "mandatory": true,
+      "description": "Unique identifier for the customer.",
+      "type": "string"
+    },
+    "customerAge": {
+      "value": "$customerAge",
+      "mandatory": true,
+      "description": "Age of the customer.",
+      "type": "integer",
+      "default": 18
+    },
+    "customerEmail": {
+      "value": "$customerEmail",
+      "mandatory": false,
+      "description": "Customer email address for notifications.",
+      "type": "string"
+    },
+    "customerPhone": {
+      "value": "$customerPhone",
+      "mandatory": false,
+      "description": "Customer phone number for SMS.",
+      "type": "string"
+    }
+  },
+
+  "ruleDefinition": {
+    "op": "and",
+    "terms": [
+      {
+        "field": "customerAge",
+        "type": "integer",
+        "comparison": "gte",
+        "value": 18
+      }
+    ]
+  },
+  
+  "actions": [
+    {
+      "type": "onSuccess",
+      "actions": [
+        {
+          "sequence": 1,
+          "type": "log",
+          "message": "Customer is eligible."
+        },
+        {
+          "sequence": 2,
+          "type": "sendEmail",
+          "to": { "parameter": "$customerEmail" },
+          "subject": "Eligibility Confirmed"
+        }
+      ]
+    },
+    {
+      "type": "onFailure",
+      "actions": [
+        {
+          "sequence": 1,
+          "type": "log",
+          "message": "Customer is ineligible."
+        },
+        {
+          "sequence": 2,
+          "type": "sendSMS",
+          "to": { "parameter": "$customerPhone" },
+          "message": "Unfortunately, you are not eligible."
+        }
+      ]
+    }
+  ],
+  
+  "result": {
+    "ruleResult": {
+      "status": {
+        "type": "string",
+        "enum": ["passed", "failed", "error"]
+      },
+      "timestamp": { "type": "date" },
+      "executionTimeMs": { "type": "integer" }
+    },
+    "outcome": {
+      "success": {
+        "returnValues": [
+          {
+            "name": "offerId",
+            "value": "OFFER-ABC",
+            "type": "string"
+          }
+        ]
+      },
+      "failure": {
+        "returnValues": [
+          {
+            "name": "reasonCode",
+            "value": "AGE_REQUIREMENT_NOT_MET",
+            "type": "string"
+          }
+        ]
+      }
+    }
+  }
+}
