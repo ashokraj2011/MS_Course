@@ -11,7 +11,7 @@
     "status": "active",
     "copyAllowed": true,
     "appearsInSearch": true,
-      "usageScopes": [
+    "usageScopes": [
       {
         "scopeName": "LoanApprovalWorkflow",
         "allowed": true
@@ -28,7 +28,6 @@
     "maxScopeAssociations": 1,
     "isFinal": false,
     "allowAllScopes": false,
-  
     "ruleExpiry": {
       "expiryFlag": "Y",
       "dateOfExpiry": "2025-12-31T23:59:59Z"
@@ -49,6 +48,19 @@
     "cachable": true,
     "ttl": 3600,
     "cacheKey": "${ruleName}_${personaId}"
+  },
+  "documentation": {
+    "purpose": "This rule evaluates customer eligibility for marketing offers based on account status, demographics, and transaction history.",
+    "usageNotes": "This rule should be called from the LoanApprovalWorkflow or CrossSellCampaign flows only.",
+    "technicalNotes": "Connects to multiple data sources including customer database, order history, and uses AI models for sentiment analysis.",
+    "businessOwner": "Marketing Team (marketing@example.com)",
+    "technicalOwner": "Rules Engineering Team (rules@example.com)"
+  },
+  "performance": {
+    "expectedExecutionTimeMs": 250,
+    "timeoutMs": 2000,
+    "monitoringEnabled": true,
+    "alertThresholdMs": 1000
   },
   "logging": {
     "defaultLevel": "INFO",
@@ -163,7 +175,9 @@
     {
       "type": "onSuccess",
       "actions": [
+
         {
+          
           "sequence": 1,
           "type": "log",
           "message": "Customer eligible. Sending confirmation email."
@@ -195,6 +209,19 @@
             }
           ]
         }
+        {
+          "sequence": 3,
+          "type": "invokeRule",
+          "ruleName": "IntentRule"
+        }
+          {
+            "sequence": 4,
+          "type": "updateFact",
+          "fact": "customer",
+          "updates": {
+            "AltInvestor": true
+          }
+        },
       ]
     },
     {
