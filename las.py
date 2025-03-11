@@ -73,11 +73,12 @@ def parse_entity_attributes(ast, entity_to_datasource):
                 for field in definition.fields:
                     attribute_name = field.name.value
                     attribute_type = extract_type_name(field.type)
+                    parent_entity = entity_name  # Fix: EntityName should match actual type, not CAS
                     table_name = get_directive_value(field.directives, "table", "name")
                     
                     entity_attributes.append({
                         "DataSource": data_source,
-                        "EntityName": entity_name,
+                        "EntityName": parent_entity,
                         "AttributeName": attribute_name,
                         "ParentAttributeName": None,
                         "Source": "GraphQL",
