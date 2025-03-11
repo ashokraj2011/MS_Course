@@ -8,7 +8,9 @@ def parse_graphql_schema(graphql_content):
     data_sources = []
     entities = []
     entity_attributes = []
+    entity_to_datasource = {}  # Store entity -> datasource mapping
     
+    # Extract Data Sources from Query
     for definition in ast.definitions:
         if definition.kind == "object_type_definition" and definition.name.value == "Query":
             for field in definition.fields:
@@ -21,7 +23,7 @@ def parse_graphql_schema(graphql_content):
                         for arg in directive.arguments:
                             if arg.name.value == "name":
                                 data_source = arg.value.value
-                                
+                
                 if data_source:
                     data_sources.append({
                         "DataSource": data_source,
@@ -29,15 +31,23 @@ def parse_graphql_schema(graphql_content):
                         "RootQuery": f"{field_name}(${', '.join(params)})",
                         "Params": ', '.join(params)
                     })
+                    
+                    # Map the return type (entity) to the data source
+                    if field.type.kind == "named_type":
+                        entity_name = field.type.name.value
+                        entity_to_datasource[entity_name] = data_source  # Store mapping
     
-        # Extract entities and attributes from non-query types
-        elif definition.kind == "object_type_definition":
+    # Extract entities and attributes
+    for definition in ast.definitions:
+        if definition.kind == "object_type_definition" and definition.name.value != "Query":
             entity_name = definition.name.value
-            entity_graphql = f"type {entity_name} {{\n"
+            data_source = entity_to_datasource.get(entity_name, None)  # Get mapped DataSource
             
+            entity_graphql = f"type {entity_name} {{\n"
             for field in definition.fields:
                 attribute_name = field.name.value
-                attribute_type = field.type.kind if hasattr(field.type, "kind") else field.type.name.value
+                attribute_type = field.type.name.value if hasattr(field.type, "name") else "unknown"
+                
                 entity_attributes.append({
                     "DataSource": data_source,
                     "EntityName": entity_name,
@@ -47,12 +57,15 @@ def parse_graphql_schema(graphql_content):
                     "RateLimit": None
                 })
                 entity_graphql += f"  {attribute_name}: {attribute_type}\n"
-            
             entity_graphql += "}"
             
             if data_source:
-                entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
-    
+                entities.append({
+                    "DataSource": data_source,
+                    "EntityName": entity_name,
+                    "GraphQL": entity_graphql
+                })
+
     return data_sources, entities, entity_attributes
 
 # Load GraphQL file
@@ -69,3 +82,4 @@ df_entities = pd.DataFrame(entities)
 df_entity_attributes = pd.DataFrame(entity_attributes)
 
 print("GraphQL schema parsed successfully.")
+
