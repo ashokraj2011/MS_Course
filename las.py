@@ -19,15 +19,19 @@ def get_directive_value(directives, directive_name, arg_name):
                     return arg.value.value
     return None
 
-def traverse_entities(entity_name, data_source, ast, entity_to_datasource):
-    """Recursively assign data sources to nested entities."""
+def traverse_entities(entity_name, data_source, ast, entity_to_datasource, visited):
+    """Recursively assign data sources to nested entities without overriding correct mappings."""
+    if entity_name in visited:
+        return  # Prevent infinite loops
+    visited.add(entity_name)
+    
     for definition in ast.definitions:
         if definition.kind == "object_type_definition" and definition.name.value == entity_name:
             for field in definition.fields:
                 nested_entity = extract_type_name(field.type)
                 if nested_entity and nested_entity not in entity_to_datasource:
                     entity_to_datasource[nested_entity] = data_source
-                    traverse_entities(nested_entity, data_source, ast, entity_to_datasource)
+                    traverse_entities(nested_entity, data_source, ast, entity_to_datasource, visited)
 
 def parse_graphql_schema(graphql_content):
     """Parses GraphQL schema and extracts data sources, entities, attributes, and root queries recursively."""
@@ -41,6 +45,7 @@ def parse_graphql_schema(graphql_content):
     entities = []
     entity_attributes = []
     entity_to_datasource = {}  # Store entity -> datasource mapping
+    visited_entities = set()  # Track visited entities to prevent infinite loops
     
     # Extract Data Sources from Query
     for definition in ast.definitions:
@@ -53,7 +58,7 @@ def parse_graphql_schema(graphql_content):
                 # Extract @datasource directive
                 data_source = get_directive_value(field.directives, "datasource", "name")
                 
-                if data_source:
+                if data_source and return_type:
                     data_sources.append({
                         "DataSource": data_source,
                         "Name": data_source,
@@ -61,9 +66,10 @@ def parse_graphql_schema(graphql_content):
                         "Params": ', '.join(params)
                     })
                     
-                    # Store the return type (entity) -> data source mapping
-                    entity_to_datasource[return_type] = data_source
-                    traverse_entities(return_type, data_source, ast, entity_to_datasource)  # Traverse nested entities
+                    # Store only the correct entity-to-DataSource mapping
+                    if return_type not in entity_to_datasource:
+                        entity_to_datasource[return_type] = data_source
+                        traverse_entities(return_type, data_source, ast, entity_to_datasource, visited_entities)  # Traverse nested entities
     
     # Extract entities and attributes recursively
     for definition in ast.definitions:
