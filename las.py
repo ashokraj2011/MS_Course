@@ -2,8 +2,16 @@ import json
 import pandas as pd
 from graphql import parse
 
+def extract_type_name(field_type):
+    """Recursively extract type name from GraphQL type structure."""
+    if hasattr(field_type, "name"):
+        return field_type.name.value
+    elif hasattr(field_type, "type"):
+        return extract_type_name(field_type.type)
+    return "unknown"
+
 def parse_graphql_schema(graphql_content):
-    """Parses GraphQL schema and extracts data sources, entities, attributes, and root queries."""
+    """Parses GraphQL schema and extracts data sources, entities, attributes, and root queries recursively."""
     ast = parse(graphql_content)
     data_sources = []
     entities = []
@@ -23,7 +31,7 @@ def parse_graphql_schema(graphql_content):
                         for arg in directive.arguments:
                             if arg.name.value == "name":
                                 data_source = arg.value.value
-                
+                                
                 if data_source:
                     data_sources.append({
                         "DataSource": data_source,
@@ -32,21 +40,20 @@ def parse_graphql_schema(graphql_content):
                         "Params": ', '.join(params)
                     })
                     
-                    # Map the return type (entity) to the data source
-                    if field.type.kind == "named_type":
-                        entity_name = field.type.name.value
-                        entity_to_datasource[entity_name] = data_source  # Store mapping
+                    # Store the return type (entity) -> data source mapping
+                    entity_name = extract_type_name(field.type)
+                    entity_to_datasource[entity_name] = data_source
     
-    # Extract entities and attributes
+    # Extract entities and attributes recursively
     for definition in ast.definitions:
         if definition.kind == "object_type_definition" and definition.name.value != "Query":
             entity_name = definition.name.value
-            data_source = entity_to_datasource.get(entity_name, None)  # Get mapped DataSource
-            
+            data_source = entity_to_datasource.get(entity_name, None)
             entity_graphql = f"type {entity_name} {{\n"
+            
             for field in definition.fields:
                 attribute_name = field.name.value
-                attribute_type = field.type.name.value if hasattr(field.type, "name") else "unknown"
+                attribute_type = extract_type_name(field.type)
                 
                 entity_attributes.append({
                     "DataSource": data_source,
@@ -57,15 +64,12 @@ def parse_graphql_schema(graphql_content):
                     "RateLimit": None
                 })
                 entity_graphql += f"  {attribute_name}: {attribute_type}\n"
+            
             entity_graphql += "}"
             
             if data_source:
-                entities.append({
-                    "DataSource": data_source,
-                    "EntityName": entity_name,
-                    "GraphQL": entity_graphql
-                })
-
+                entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
+    
     return data_sources, entities, entity_attributes
 
 # Load GraphQL file
@@ -82,4 +86,3 @@ df_entities = pd.DataFrame(entities)
 df_entity_attributes = pd.DataFrame(entity_attributes)
 
 print("GraphQL schema parsed successfully.")
-
