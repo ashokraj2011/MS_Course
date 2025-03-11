@@ -58,6 +58,26 @@ class Database:
             return self.select_samples(customers_df)
         
         return samples
+    
+    def stratified_sampling(self, customers_df):
+        """Perform stratified sampling by grouping customers and selecting proportionally."""
+        if "group" not in customers_df.columns:
+            customers_df["group"] = "default"  # Assign all customers to the same group if no grouping available
+        samples = []
+        grouped = customers_df.groupby("group")
+        for _ in range(self.num_samples):
+            strat_sample = grouped.apply(lambda x: x.sample(n=min(self.customers_per_sample, len(x)), replace=False)).reset_index(drop=True)
+            samples.append(strat_sample)
+        return samples
+    
+    def systematic_sampling(self, customers_df):
+        """Perform systematic sampling by selecting every k-th customer."""
+        samples = []
+        interval = max(1, len(customers_df) // self.customers_per_sample)
+        for _ in range(self.num_samples):
+            systematic_sample = customers_df.iloc[::interval].head(self.customers_per_sample)
+            samples.append(systematic_sample)
+        return samples
 
 class RuleEngine:
     def __init__(self, rule_engine_api_url):
