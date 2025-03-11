@@ -10,6 +10,15 @@ def extract_type_name(field_type):
         return extract_type_name(field_type.type)
     return "unknown"
 
+def get_directive_value(directives, directive_name, arg_name):
+    """Extracts the value of a specific directive argument."""
+    for directive in directives:
+        if directive.name.value == directive_name:
+            for arg in directive.arguments:
+                if arg.name.value == arg_name:
+                    return arg.value.value
+    return None
+
 def traverse_entities(entity_name, data_source, ast, entity_to_datasource):
     """Recursively assign data sources to nested entities."""
     for definition in ast.definitions:
@@ -39,13 +48,10 @@ def parse_graphql_schema(graphql_content):
             for field in definition.fields:
                 field_name = field.name.value
                 params = [arg.name.value for arg in field.arguments]
+                return_type = extract_type_name(field.type)
                 
-                data_source = None
-                for directive in field.directives:
-                    if directive.name.value == "datasource":
-                        for arg in directive.arguments:
-                            if arg.name.value == "name":
-                                data_source = arg.value.value
+                # Extract @datasource directive
+                data_source = get_directive_value(field.directives, "datasource", "name")
                 
                 if data_source:
                     data_sources.append({
@@ -56,7 +62,6 @@ def parse_graphql_schema(graphql_content):
                     })
                     
                     # Store the return type (entity) -> data source mapping
-                    return_type = extract_type_name(field.type)
                     entity_to_datasource[return_type] = data_source
                     traverse_entities(return_type, data_source, ast, entity_to_datasource)  # Traverse nested entities
     
@@ -72,6 +77,7 @@ def parse_graphql_schema(graphql_content):
                 for field in definition.fields:
                     attribute_name = field.name.value
                     attribute_type = extract_type_name(field.type)
+                    table_name = get_directive_value(field.directives, "table", "name")  # Extract @table directive
                     
                     entity_attributes.append({
                         "DataSource": data_source,
@@ -79,7 +85,8 @@ def parse_graphql_schema(graphql_content):
                         "AttributeName": attribute_name,
                         "ParentAttributeName": None,
                         "Source": "GraphQL",
-                        "RateLimit": None
+                        "RateLimit": None,
+                        "Table": table_name
                     })
                     entity_graphql += f"  {attribute_name}: {attribute_type}\n"
                 entity_graphql += "}"
