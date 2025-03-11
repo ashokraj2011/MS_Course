@@ -43,42 +43,43 @@ def parse_data_sources(ast):
     
     return data_sources, entity_to_datasource
 
-def parse_entities(ast, entity_to_datasource):
-    """Extract entities and assign them to their respective data sources."""
+def parse_entities(ast, df_data_sources):
+    """Extract entities by iterating through data sources and scanning the GraphQL schema."""
     entities = []
-    for definition in ast.definitions:
-        if definition.kind == "object_type_definition" and definition.name.value != "Query":
-            entity_name = definition.name.value
-            data_source = entity_to_datasource.get(entity_name, None)
-            
-            if data_source:
-                entity_graphql = f"type {entity_name} {{\n"
-                for field in definition.fields:
-                    entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
-                entity_graphql += "}"
+    for _, row in df_data_sources.iterrows():
+        data_source = row["DataSource"]
+        for definition in ast.definitions:
+            if definition.kind == "object_type_definition" and definition.name.value != "Query":
+                entity_name = definition.name.value
                 
-                entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
+                # Check if entity is linked to this DataSource
+                if any(field.type.name.value == entity_name for field in definition.fields if hasattr(field.type, "name")):
+                    entity_graphql = f"type {entity_name} {{\n"
+                    for field in definition.fields:
+                        entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
+                    entity_graphql += "}"
+                    
+                    entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
     
     return entities
 
-def parse_entity_attributes(ast, entity_to_datasource):
-    """Extract attributes for each entity and assign to the respective data source."""
+def parse_entity_attributes(ast, df_entities):
+    """Extract attributes by iterating through entities and scanning the GraphQL schema."""
     entity_attributes = []
-    for definition in ast.definitions:
-        if definition.kind == "object_type_definition" and definition.name.value != "Query":
-            entity_name = definition.name.value
-            data_source = entity_to_datasource.get(entity_name, None)
-            
-            if data_source:
+    for _, row in df_entities.iterrows():
+        data_source = row["DataSource"]
+        entity_name = row["EntityName"]
+        
+        for definition in ast.definitions:
+            if definition.kind == "object_type_definition" and definition.name.value == entity_name:
                 for field in definition.fields:
                     attribute_name = field.name.value
                     attribute_type = extract_type_name(field.type)
-                    parent_entity = entity_name  # Fix: EntityName should match actual type, not CAS
                     table_name = get_directive_value(field.directives, "table", "name")
                     
                     entity_attributes.append({
                         "DataSource": data_source,
-                        "EntityName": parent_entity,
+                        "EntityName": entity_name,
                         "AttributeName": attribute_name,
                         "ParentAttributeName": None,
                         "Source": "GraphQL",
@@ -108,10 +109,10 @@ except Exception as e:
 data_sources, entity_to_datasource = parse_data_sources(ast)
 df_data_sources = pd.DataFrame(data_sources)
 
-entities = parse_entities(ast, entity_to_datasource)
+entities = parse_entities(ast, df_data_sources)
 df_entities = pd.DataFrame(entities)
 
-entity_attributes = parse_entity_attributes(ast, entity_to_datasource)
+entity_attributes = parse_entity_attributes(ast, df_entities)
 df_entity_attributes = pd.DataFrame(entity_attributes)
 
 print("GraphQL schema parsed successfully.")
