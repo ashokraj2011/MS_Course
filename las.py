@@ -52,8 +52,8 @@ def parse_entities(ast, df_data_sources):
             if definition.kind == "object_type_definition" and definition.name.value != "Query":
                 entity_name = definition.name.value
                 
-                # Check if entity is linked to this DataSource
-                if any(field.type.name.value == entity_name for field in definition.fields if hasattr(field.type, "name")):
+                # Assign entity to its DataSource if it has fields belonging to the DataSource
+                if entity_name in entity_to_datasource and entity_to_datasource[entity_name] == data_source:
                     entity_graphql = f"type {entity_name} {{\n"
                     for field in definition.fields:
                         entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
@@ -75,11 +75,12 @@ def parse_entity_attributes(ast, df_entities):
                 for field in definition.fields:
                     attribute_name = field.name.value
                     attribute_type = extract_type_name(field.type)
+                    parent_entity = entity_name  # Assign the correct parent entity
                     table_name = get_directive_value(field.directives, "table", "name")
                     
                     entity_attributes.append({
                         "DataSource": data_source,
-                        "EntityName": entity_name,
+                        "EntityName": parent_entity,
                         "AttributeName": attribute_name,
                         "ParentAttributeName": None,
                         "Source": "GraphQL",
