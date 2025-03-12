@@ -47,24 +47,29 @@ def parse_data_sources(ast):
 def parse_entities(ast, df_data_sources, entity_to_datasource):
     """Extract entities by iterating through data sources and scanning the GraphQL schema."""
     entities = []
-    for _, row in df_data_sources.iterrows():
-        data_source = row["DataSource"]
-        for definition in ast.definitions:
-            if definition.kind == "object_type_definition" and definition.name.value != "Query":
-                entity_name = definition.name.value
-                
-                # Assign entity if it is mapped or its fields reference known entities
-                if entity_name in entity_to_datasource or any(
-                    extract_type_name(field.type) in entity_to_datasource for field in definition.fields
-                ):
-                    entity_to_datasource[entity_name] = data_source  # Ensure mapping
-                    entity_graphql = f"type {entity_name} {{\n"
-                    for field in definition.fields:
-                        entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
-                    entity_graphql += "}"
-                    
-                    entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
-    
+    for definition in ast.definitions:
+        if definition.kind == "object_type_definition" and definition.name.value != "Query":
+            entity_name = definition.name.value
+            if entity_name in entity_to_datasource:
+                data_source = entity_to_datasource[entity_name]
+                entity_graphql = f"type {entity_name} {{\n"
+                for field in definition.fields:
+                    entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
+                entity_graphql += "}"
+                entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
+            else:
+                for field in definition.fields:
+                    field_type = extract_type_name(field.type)
+                    if field_type in entity_to_datasource:
+                        data_source = entity_to_datasource[field_type]
+                        entity_to_datasource[entity_name] = data_source
+                        entity_graphql = f"type {entity_name} {{\n"
+                        for field in definition.fields:
+                            entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
+                        entity_graphql += "}"
+                        entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
+                        break
+
     return entities
 
 def parse_entity_attributes(ast, df_entities):
