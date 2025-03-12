@@ -43,7 +43,6 @@ def parse_data_sources(ast):
                     entity_to_datasource[return_type] = data_source
 
     return data_sources, entity_to_datasource
-
 def parse_entities(ast, df_data_sources, entity_to_datasource):
     """Extract entities by iterating through data sources and scanning the GraphQL schema."""
     entities = []
@@ -58,7 +57,7 @@ def parse_entities(ast, df_data_sources, entity_to_datasource):
                         entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
                     entity_graphql += "}"
                     entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
-                else :
+                else:
                     for field in definition.fields:
                         field_type = extract_type_name(field.type)
                         if field_type in entity_to_datasource and entity_to_datasource[field_type] == data_source:
@@ -69,8 +68,23 @@ def parse_entities(ast, df_data_sources, entity_to_datasource):
                             entity_graphql += "}"
                             entities.append({"DataSource": data_source, "EntityName": entity_name, "GraphQL": entity_graphql})
                             break
-    return entities
 
+    # Recursively find child entities
+    child_entities = []
+    for entity in entities:
+        for definition in ast.definitions:
+            if definition.kind == "object_type_definition" and definition.name.value == entity["EntityName"]:
+                for field in definition.fields:
+                    field_type = extract_type_name(field.type)
+                    if field_type in entity_to_datasource and entity_to_datasource[field_type] == entity["DataSource"]:
+                        child_entity_graphql = f"type {field_type} {{\n"
+                        for child_field in next(d for d in ast.definitions if d.kind == "object_type_definition" and d.name.value == field_type).fields:
+                            child_entity_graphql += f"  {child_field.name.value}: {extract_type_name(child_field.type)}\n"
+                        child_entity_graphql += "}"
+                        child_entities.append({"DataSource": entity["DataSource"], "EntityName": field_type, "GraphQL": child_entity_graphql})
+
+    entities.extend(child_entities)
+    return entities
 def parse_entity_attributes(ast, df_entities):
     """Extract attributes by iterating through entities and scanning the GraphQL schema."""
     entity_attributes = []
