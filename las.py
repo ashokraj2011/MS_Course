@@ -43,7 +43,7 @@ def parse_data_sources(ast):
     
     return data_sources, entity_to_datasource
 
-def parse_entities(ast, df_data_sources):
+def parse_entities(ast, df_data_sources, entity_to_datasource):
     """Extract entities by iterating through data sources and scanning the GraphQL schema."""
     entities = []
     for _, row in df_data_sources.iterrows():
@@ -52,8 +52,10 @@ def parse_entities(ast, df_data_sources):
             if definition.kind == "object_type_definition" and definition.name.value != "Query":
                 entity_name = definition.name.value
                 
-                # Assign entity to its DataSource if it has fields belonging to the DataSource
-                if entity_name in entity_to_datasource and entity_to_datasource[entity_name] == data_source:
+                # Assign entity if it belongs to the data source or is nested inside it
+                if entity_name in entity_to_datasource.values() or any(
+                    extract_type_name(field.type) in entity_to_datasource for field in definition.fields
+                ):
                     entity_graphql = f"type {entity_name} {{\n"
                     for field in definition.fields:
                         entity_graphql += f"  {field.name.value}: {extract_type_name(field.type)}\n"
@@ -85,7 +87,7 @@ def parse_entity_attributes(ast, df_entities):
                         "ParentAttributeName": None,
                         "Source": "GraphQL",
                         "RateLimit": None,
-                        "Table": table_name
+                        "Table": table_name if table_name else "N/A"
                     })
     
     return entity_attributes
@@ -110,7 +112,7 @@ except Exception as e:
 data_sources, entity_to_datasource = parse_data_sources(ast)
 df_data_sources = pd.DataFrame(data_sources)
 
-entities = parse_entities(ast, df_data_sources)
+entities = parse_entities(ast, df_data_sources, entity_to_datasource)
 df_entities = pd.DataFrame(entities)
 
 entity_attributes = parse_entity_attributes(ast, df_entities)
