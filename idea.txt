@@ -1,0 +1,256 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import java.time.LocalDate;
+import java.util.HashSet;
+import java.util.Set;
+
+class Rule {
+    private String namespace;
+    private String name;
+    private String comparison;
+    private JsonNode value;
+    private String evaluationGroup;
+
+    public Rule(String namespace, String name, String comparison, JsonNode value, String evaluationGroup) {
+        this.namespace = namespace;
+        this.name = name;
+        this.comparison = comparison;
+        this.value = value;
+        this.evaluationGroup = evaluationGroup;
+    }
+
+    public static Rule fromJson(JsonNode node) {
+        try {
+            String namespace = node.path("field").path("namespace").asText();
+            String name = node.path("field").path("name").asText();
+            String comparison = node.path("comp").asText();
+            JsonNode value = node.path("value");
+            String evaluationGroup = node.path("field").path("evaluation_group").asText();
+            return new Rule(namespace, name, comparison, value, evaluationGroup);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public boolean isValid() {
+        return namespace != null && !namespace.isEmpty() && name != null && !name.isEmpty() && comparison != null && !comparison.isEmpty();
+    }
+
+    public String getNamespace() { return namespace; }
+    public String getName() { return name; }
+    public String getEvaluationGroup() { return evaluationGroup; }
+
+    public boolean evaluate(JsonNode targetNode) {
+        if (targetNode == null) return false;
+        try {
+            String targetValue = targetNode.asText();
+
+            switch (comparison.toLowerCase()) {
+                case "equal to":
+                    return targetValue.equals(value.asText());
+                case "not equal to":
+                    return !targetValue.equals(value.asText());
+                case "greater than":
+                    return targetNode.asDouble() > value.asDouble();
+                case "less than":
+                    return targetNode.asDouble() < value.asDouble();
+                case "greater than or equal to":
+                    return targetNode.asDouble() >= value.asDouble();
+                case "less than or equal to":
+                    return targetNode.asDouble() <= value.asDouble();
+                case "exists in":
+                    return checkArrayCondition(targetNode, true);
+                case "not exists in":
+                    return checkArrayCondition(targetNode, false);
+                case "contains":
+                    return targetValue.contains(value.asText());
+                case "not contains":
+                    return !targetValue.contains(value.asText());
+                case "date before":
+                    LocalDate targetDate = LocalDate.parse(targetValue);
+                    LocalDate compareDate = LocalDate.parse(value.asText());
+                    return targetDate.isBefore(compareDate);
+                case "date after":
+                    targetDate = LocalDate.parse(targetValue);
+                    compareDate = LocalDate.parse(value.asText());
+                    return targetDate.isAfter(compareDate);
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
+            System.out.println("[ERROR] Evaluation failed for rule: " + this + " | Reason: " + e.getMessage());
+            return false;
+        }
+    }
+
+    private boolean checkArrayCondition(JsonNode targetNode, boolean shouldExist) {
+        if (targetNode.isArray() && value.isArray()) {
+            Set<String> targetSet = new HashSet<>();
+            for (JsonNode item : targetNode) {
+                targetSet.add(item.asText());
+            }
+            for (JsonNode item : value) {
+                if (targetSet.contains(item.asText()) == shouldExist) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (targetNode.isArray()) {
+            for (JsonNode item : targetNode) {
+                if (item.asText().equals(value.asText())) {
+                    return shouldExist;
+                }
+            }
+            return !shouldExist;
+        }
+
+        return false;
+    }
+
+    @Override
+    public String toString() {
+        return "Rule [namespace=" + namespace + ", name=" + name + ", comparison=" + comparison + ", value=" + value + ", group=" + evaluationGroup + "]";
+    }
+}
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class JsonRuleEngine {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Map<String, String> typeDefinition = new HashMap<>();
+
+    public static void loadTypeDefinitionsFromFile(String filePath) {
+        try {
+            List<String> lines = Files.readAllLines(new File(filePath).toPath());
+            for (String line : lines) {
+                String[] parts = line.split(":");
+                if (parts.length == 2) {
+                    typeDefinition.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+            System.out.println("[INFO] Type definitions loaded successfully from " + filePath);
+        } catch (IOException e) {
+            System.err.println("[ERROR] Failed to load type definitions: " + e.getMessage());
+        }
+    }
+
+    public static void updateTypeDefinition(String field, String type) {
+        typeDefinition.put(field, type);
+    }
+
+    private static boolean validateType(String fieldPath, JsonNode node) {
+        if (!typeDefinition.containsKey(fieldPath)) {
+            return true;
+        }
+
+        String expectedType = typeDefinition.get(fieldPath);
+
+        if (expectedType.endsWith("[]")) {
+            return node.isArray();
+        }
+
+        switch (expectedType) {
+            case "Integer":
+                return node.isInt();
+            case "Double":
+                return node.isDouble() || node.isFloat() || node.isInt();
+            case "String":
+                return node.isTextual();
+            case "DateTime":
+                try {
+                    LocalDate.parse(node.asText(), DateTimeFormatter.ISO_LOCAL_DATE);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            default:
+                return false;
+        }
+    }
+
+    public static boolean evaluateConditionFromJson(JsonNode node, JsonNode conditionNode) {
+        String operator = conditionNode.path("op").asText();
+        JsonNode terms = conditionNode.path("terms");
+
+        Map<String, List<Rule>> groupedConditions = new HashMap<>();
+
+        for (JsonNode term : terms) {
+            if (term.has("op")) {
+                boolean nestedResult = evaluateConditionFromJson(node, term);
+                if (operator.equalsIgnoreCase("and") && !nestedResult) return false;
+                if (operator.equalsIgnoreCase("or") && nestedResult) return true;
+            } else {
+                Rule rule = Rule.fromJson(term);
+                if (rule != null && rule.isValid()) {
+                    groupedConditions.putIfAbsent(rule.getEvaluationGroup(), new ArrayList<>());
+                    groupedConditions.get(rule.getEvaluationGroup()).add(rule);
+                }
+            }
+        }
+
+        boolean result = operator.equalsIgnoreCase("and");
+        for (Map.Entry<String, List<Rule>> entry : groupedConditions.entrySet()) {
+            boolean groupResult = evaluateGroup(node, entry.getValue());
+
+            if (operator.equalsIgnoreCase("and") && !groupResult) return false;
+            if (operator.equalsIgnoreCase("or") && groupResult) return true;
+        }
+
+        return result;
+    }
+
+    private static boolean evaluateGroup(JsonNode node, List<Rule> rules) {
+        boolean groupResult = true;
+        for (Rule rule : rules) {
+            JsonNode targetNode = findNestedNode(node, rule.getNamespace(), rule.getName());
+            boolean result = rule.evaluate(targetNode);
+            if (!result) {
+                System.out.println("[FAILURE] " + rule + " -> Result: " + result + " | Reason: Condition not met");
+            } else {
+                System.out.println("[SUCCESS] " + rule + " -> Result: " + result);
+            }
+            if (!result) groupResult = false;
+        }
+        return groupResult;
+    }
+
+    private static JsonNode findNestedNode(JsonNode root, String namespace, String field) {
+        String[] namespaceParts = namespace.split("\\.");
+        JsonNode currentNode = root;
+
+        for (String part : namespaceParts) {
+            currentNode = currentNode.path(part);
+            if (currentNode.isMissingNode()) return null;
+        }
+
+        return currentNode.path(field);
+    }
+
+    public static boolean isConditionTrue(JsonNode rootNode, JsonNode conditionNode) {
+        return evaluateConditionFromJson(rootNode, conditionNode);
+    }
+
+    public static void main(String[] args) {
+        try {
+            loadTypeDefinitionsFromFile("type_definitions.txt");
+            JsonNode rootNode = objectMapper.readTree(new File("customer_data.json"));
+            JsonNode conditionNode = objectMapper.readTree(new File("condition.json"));
+
+            System.out.println("\n[INFO] Starting Evaluation...");
+            boolean result = isConditionTrue(rootNode, conditionNode);
+            System.out.println("\n[INFO] Final Condition Evaluation Result: " + result);
+        } catch (IOException e) {
+            System.err.println("[ERROR] An error occurred during processing: " + e.getMessage());
+        }
+    }
+}
