@@ -1,0 +1,286 @@
+
+type_definitions.txt)
+plaintext
+Copy
+Edit
+customer.age: Integer
+customer.salary: Double
+customer.location: String
+customer.registrationDate: DateTime
+customer.accounts.balance: Double
+branch.location: String
+
+
+----
+customer_data.json)
+json
+Copy
+Edit
+{
+  "customer": {
+    "age": 30,
+    "salary": 5000,
+    "location": "Delhi",
+    "registrationDate": "2025-03-20",
+    "accounts": [
+      {
+        "accountNumber": "12345",
+        "balance": 60000
+      },
+      {
+        "accountNumber": "67890",
+        "balance": 1000
+      }
+    ]
+  },
+  "branch": {
+    "location": "Mumbai"
+  }
+}
+
+-------
+✅ Condition File (condition.json)
+json
+Copy
+Edit
+
+{
+  "op": "or",
+  "terms": [
+    {
+      "op": "and",
+      "terms": [
+        {
+          "field": {
+            "name": "age",
+            "namespace": "customer",
+            "evaluation_group": "1"
+          },
+          "comp": "equal to",
+          "value": "30"
+        },
+        {
+          "field": {
+            "name": "salary",
+            "namespace": "customer",
+            "evaluation_group": "1"
+          },
+          "comp": "greater than",
+          "value": "4000"
+        }
+      ]
+    },
+    {
+      "op": "or",
+      "terms": [
+        {
+          "field": {
+            "name": "balance",
+            "namespace": "customer.accounts",
+            "evaluation_group": "2"
+          },
+          "comp": "greater than",
+          "value": "50000"
+        },
+        {
+          "field": {
+            "name": "registrationDate",
+            "namespace": "customer",
+            "evaluation_group": "3"
+          },
+          "comp": "date after",
+          "value": "CURRENT DATE - 10 days"
+        }
+      ]
+    }
+  ]
+}
+
+
+
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
+import java.util.*;
+
+public class GenericJsonUtility {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final Map<String, String> typeDefinition = new HashMap<>();
+
+    public static void loadTypeDefinitionsFromFile(String filePath) {
+        try {
+            List<String> lines = Files.readAllLines(new File(filePath).toPath());
+            for (String line : lines) {
+                String[] parts = line.split(":");
+                if (parts.length == 2) {
+                    typeDefinition.put(parts[0].trim(), parts[1].trim());
+                }
+            }
+            System.out.println("Type definitions loaded successfully from " + filePath);
+        } catch (IOException e) {
+            System.err.println("Failed to load type definitions: " + e.getMessage());
+        }
+    }
+
+    public static void updateTypeDefinition(String field, String type) {
+        typeDefinition.put(field, type);
+    }
+
+    private static boolean validateType(String fieldPath, JsonNode node) {
+        if (!typeDefinition.containsKey(fieldPath)) {
+            return true;
+        }
+
+        String expectedType = typeDefinition.get(fieldPath);
+
+        switch (expectedType) {
+            case "Integer":
+                return node.isInt();
+            case "Double":
+                return node.isDouble() || node.isFloat() || node.isInt();
+            case "String":
+                return node.isTextual();
+            case "DateTime":
+                try {
+                    LocalDate.parse(node.asText(), DateTimeFormatter.ISO_LOCAL_DATE);
+                    return true;
+                } catch (Exception e) {
+                    return false;
+                }
+            default:
+                return false;
+        }
+    }
+
+    public static boolean evaluateConditionFromJson(JsonNode node, JsonNode conditionNode) {
+        String operator = conditionNode.path("op").asText();
+        JsonNode terms = conditionNode.path("terms");
+
+        Map<String, List<JsonNode>> groupedConditions = new HashMap<>();
+
+        for (JsonNode term : terms) {
+            if (term.has("op")) {
+                boolean nestedResult = evaluateConditionFromJson(node, term);
+                if (operator.equalsIgnoreCase("and") && !nestedResult) return false;
+                if (operator.equalsIgnoreCase("or") && nestedResult) return true;
+            } else {
+                String group = term.path("field").path("evaluation_group").asText();
+                groupedConditions.putIfAbsent(group, new ArrayList<>());
+                groupedConditions.get(group).add(term);
+            }
+        }
+
+        boolean result = operator.equalsIgnoreCase("and");
+        for (Map.Entry<String, List<JsonNode>> entry : groupedConditions.entrySet()) {
+            boolean groupResult = evaluateGroup(node, entry.getValue());
+
+            if (operator.equalsIgnoreCase("and") && !groupResult) return false;
+            if (operator.equalsIgnoreCase("or") && groupResult) return true;
+        }
+
+        return result;
+    }
+
+    private static boolean evaluateGroup(JsonNode node, List<JsonNode> groupConditions) {
+        for (JsonNode condition : groupConditions) {
+            if (!evaluateSimpleConditionFromJson(node, condition)) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private static boolean evaluateSimpleConditionFromJson(JsonNode node, JsonNode term) {
+        try {
+            String namespace = term.path("field").path("namespace").asText();
+            String field = term.path("field").path("name").asText();
+            String fullFieldPath = namespace + "." + field;
+            String comparison = term.path("comp").asText().toLowerCase();
+            String value = term.path("value").asText().trim();
+
+            JsonNode targetNode = findNestedNode(node, namespace, field);
+            if (targetNode == null) return false;
+
+            if (!validateType(fullFieldPath, targetNode)) {
+                System.err.println("Type mismatch for field: " + fullFieldPath);
+                return false;
+            }
+
+            switch (comparison) {
+                case "equal to":
+                    return targetNode.asText().equals(value);
+                case "greater than":
+                    return targetNode.asDouble() > Double.parseDouble(value);
+                case "less than":
+                    return targetNode.asDouble() < Double.parseDouble(value);
+                case "not equal to":
+                    return !targetNode.asText().equals(value);
+                case "greater than or equal to":
+                    return targetNode.asDouble() >= Double.parseDouble(value);
+                case "less than or equal to":
+                    return targetNode.asDouble() <= Double.parseDouble(value);
+                case "contains":
+                    return targetNode.asText().contains(value);
+                case "date after":
+                    LocalDate nodeDate = LocalDate.parse(targetNode.asText());
+                    LocalDate compareDate = parseDateCondition(value);
+                    return nodeDate.isAfter(compareDate);
+                case "date before":
+                    nodeDate = LocalDate.parse(targetNode.asText());
+                    compareDate = parseDateCondition(value);
+                    return nodeDate.isBefore(compareDate);
+                default:
+                    return false;
+            }
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    private static JsonNode findNestedNode(JsonNode root, String namespace, String field) {
+        String[] namespaceParts = namespace.split("\\.");
+        JsonNode currentNode = root;
+
+        for (String part : namespaceParts) {
+            currentNode = currentNode.path(part);
+            if (currentNode.isMissingNode()) return null;
+        }
+
+        return currentNode.path(field);
+    }
+
+    public static LocalDate parseDateCondition(String condition) {
+        if (condition.contains("CURRENT DATE")) {
+            String[] parts = condition.split("-");
+            int daysAgo = Integer.parseInt(parts[1].trim().split(" ")[0]);
+            return LocalDate.now().minusDays(daysAgo);
+        }
+        return LocalDate.parse(condition, DateTimeFormatter.ISO_LOCAL_DATE);
+    }
+
+    public static boolean isConditionTrue(JsonNode rootNode, JsonNode conditionNode) {
+        return evaluateConditionFromJson(rootNode, conditionNode);
+    }
+
+    public static void main(String[] args) {
+        try {
+            loadTypeDefinitionsFromFile("type_definitions.txt");
+
+            JsonNode rootNode = objectMapper.readTree(new File("customer_data.json"));
+            JsonNode conditionNode = objectMapper.readTree(new File("condition.json"));
+
+            boolean result = isConditionTrue(rootNode, conditionNode);
+
+            System.out.println("Condition Evaluation Result: " + result);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+}
