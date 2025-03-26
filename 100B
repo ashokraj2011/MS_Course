@@ -1,0 +1,151 @@
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.fasterxml.jackson.databind.node.ArrayNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
+
+import java.io.*;
+import java.util.*;
+import java.time.LocalDate;
+
+public class JsonRuleEngine {
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectNode dataNode;
+
+    public JsonRuleEngine(ObjectNode dataNode) {
+        this.dataNode = dataNode;
+    }
+
+    public void applyGlobalFilter(JsonNode filterNode) {
+        String fieldName = filterNode.path("field").path("name").asText();
+        String comparison = filterNode.path("comp").asText();
+        String filterValue = filterNode.path("value").asText();
+
+        Set<String> excludeList = new HashSet<>();
+        if (filterNode.has("exclude")) {
+            for (JsonNode node : filterNode.path("exclude")) {
+                excludeList.add(node.asText());
+            }
+        }
+        applyFilterToNode(this.dataNode, fieldName, comparison, filterValue, excludeList, "");
+    }
+
+    private void applyFilterToNode(JsonNode currentNode, String fieldName, String comparison, String filterValue, Set<String> excludeList, String currentPath) {
+        if (currentNode.isObject()) {
+            Iterator<String> fieldNames = currentNode.fieldNames();
+
+            while (fieldNames.hasNext()) {
+                String key = fieldNames.next();
+                JsonNode childNode = currentNode.get(key);
+                String newPath = currentPath.isEmpty() ? key : currentPath + "." + key;
+
+                if (excludeList.contains(newPath)) {
+                    continue;
+                }
+
+                if (childNode.isArray()) {
+                    filterArray((ArrayNode) childNode, fieldName, comparison, filterValue);
+                } else if (childNode.isObject()) {
+                    applyFilterToNode(childNode, fieldName, comparison, filterValue, excludeList, newPath);
+                }
+            }
+        } else if (currentNode.isArray()) {
+            filterArray((ArrayNode) currentNode, fieldName, comparison, filterValue);
+        }
+    }
+
+    private void filterArray(ArrayNode arrayNode, String fieldName, String comparison, String filterValue) {
+        for (int i = 0; i < arrayNode.size(); i++) {
+            JsonNode element = arrayNode.get(i);
+
+            if (element.isObject() && element.has(fieldName)) {
+                JsonNode valueNode = element.get(fieldName);
+
+                if (valueNode != null && valueNode.asText().equals(filterValue)) {
+                    arrayNode.remove(i);
+                    i--;
+                }
+            }
+        }
+    }
+
+    public boolean evaluateRule(Rule rule) {
+        JsonNode targetNode = this.dataNode.at("/" + rule.getNamespace().replace(".", "/") + "/" + rule.getName());
+        return rule.evaluate(targetNode);
+    }
+
+    public static void main(String[] args) {
+        try {
+            ObjectNode dataNode = (ObjectNode) objectMapper.readTree(new File("data.json"));
+            JsonNode filterNode = objectMapper.readTree(new File("filter.json"));
+            JsonNode conditionNode = objectMapper.readTree(new File("condition.json"));
+
+            JsonRuleEngine engine = new JsonRuleEngine(dataNode);
+            engine.applyGlobalFilter(filterNode);
+
+            Rule rule = Rule.fromJson(conditionNode);
+            boolean evaluationResult = engine.evaluateRule(rule);
+            System.out.println("\n[INFO] Rule Evaluation Result: " + evaluationResult);
+
+        } catch (IOException e) {
+            System.err.println("[ERROR] An error occurred during processing: " + e.getMessage());
+        }
+    }
+}
+
+class Rule {
+    private String namespace;
+    private String name;
+    private String comparison;
+    private JsonNode value;
+    private String evaluationGroup;
+
+    public Rule(String namespace, String name, String comparison, JsonNode value, String evaluationGroup) {
+        this.namespace = namespace;
+        this.name = name;
+        this.comparison = comparison;
+        this.value = value;
+        this.evaluationGroup = evaluationGroup;
+    }
+
+    public static Rule fromJson(JsonNode node) {
+        try {
+            String namespace = node.path("field").path("namespace").asText();
+            String name = node.path("field").path("name").asText();
+            String comparison = node.path("comp").asText();
+            JsonNode value = node.path("value");
+            String evaluationGroup = node.path("field").path("evaluation_group").asText();
+            return new Rule(namespace, name, comparison, value, evaluationGroup);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public boolean evaluate(JsonNode targetNode) {
+        if (targetNode == null) return false;
+
+        switch (comparison.toLowerCase()) {
+            case "equal to":
+                return targetNode.asText().equals(value.asText());
+            case "greater than":
+                return targetNode.asDouble() > value.asDouble();
+            case "less than":
+                return targetNode.asDouble() < value.asDouble();
+            case "exists in":
+                if (targetNode.isArray()) {
+                    for (JsonNode node : targetNode) {
+                        if (node.asText().equals(value.asText())) return true;
+                    }
+                }
+                return false;
+            default:
+                return false;
+        }
+    }
+
+    public String getNamespace() { return namespace; }
+    public String getName() { return name; }
+    public String getComparison() { return comparison; }
+    public JsonNode getValue() { return value; }
+    public String getEvaluationGroup() { return evaluationGroup; }
+}
